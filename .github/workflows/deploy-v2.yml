@@ -652,7 +652,7 @@ jobs:
     needs: [docker-build, deploy]
     uses: ./.github/workflows/test-automation-v2.yml
     with:
-      CP_WEB_URL: ${{ needs.deploy.outputs.CONTAINER_WEB_APPURL }}
+      CP_WEB_URL: ${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || github.event.inputs.existing_webapp_url }}
     secrets: inherit
 
   cleanup-deployment:
