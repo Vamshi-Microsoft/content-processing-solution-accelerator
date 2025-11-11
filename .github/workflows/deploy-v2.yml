@@ -405,8 +405,8 @@ jobs:
             
             # Determine image tag based on branch
             if [[ "$BRANCH_NAME" == "main" ]]; then
-              IMAGE_TAG="latest_waf"
-              echo "Using main branch - image tag: latest_waf"
+              IMAGE_TAG="latest"
+              echo "Using main branch - image tag: latest"
             elif [[ "$BRANCH_NAME" == "dev" ]]; then
               IMAGE_TAG="dev"
               echo "Using dev branch - image tag: dev"
