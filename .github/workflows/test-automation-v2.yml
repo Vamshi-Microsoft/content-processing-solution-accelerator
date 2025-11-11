@@ -1,4 +1,4 @@
-name: Test Automation DocGen
+name: Test Automation Content Processing-v2
 
 on:
     workflow_call:
