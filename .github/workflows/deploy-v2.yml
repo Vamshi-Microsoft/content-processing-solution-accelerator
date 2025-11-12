@@ -648,7 +648,7 @@ jobs:
           fi
 
   e2e-test:
-    if: always() && ((needs.deploy.result == 'success' && needs.deploy.outputs.WEBAPP_URL != '') || (github.event.inputs.existing_webapp_url != '' && github.event.inputs.existing_webapp_url != null)) && (github.event_name != 'workflow_dispatch' || github.event.inputs.run_e2e_tests == 'true' || github.event.inputs.run_e2e_tests == null)
+    if: always() && ((needs.deploy.result == 'success' && needs.deploy.outputs.CONTAINER_WEB_APPURL != '') || (github.event.inputs.existing_webapp_url != '' && github.event.inputs.existing_webapp_url != null)) && (github.event_name != 'workflow_dispatch' || github.event.inputs.run_e2e_tests == 'true' || github.event.inputs.run_e2e_tests == null)
     needs: [docker-build, deploy]
     uses: ./.github/workflows/test-automation-v2.yml
     with:
@@ -829,7 +829,7 @@ jobs:
         if: needs.deploy.result == 'success' && (needs.e2e-test.result == 'skipped' || needs.e2e-test.outputs.TEST_SUCCESS == 'true')
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          WEBAPP_URL="${{ needs.deploy.outputs.WEBAPP_URL || github.event.inputs.existing_webapp_url }}"
+          WEBAPP_URL="${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || github.event.inputs.existing_webapp_url }}"
           RESOURCE_GROUP="${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}"
           TEST_REPORT_URL="${{ needs.e2e-test.outputs.TEST_REPORT_URL }}"
           
@@ -861,7 +861,7 @@ jobs:
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           TEST_REPORT_URL="${{ needs.e2e-test.outputs.TEST_REPORT_URL }}"
-          WEBAPP_URL="${{ needs.deploy.outputs.WEBAPP_URL || github.event.inputs.existing_webapp_url }}"
+          WEBAPP_URL="${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || github.event.inputs.existing_webapp_url }}"
           RESOURCE_GROUP="${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}"
           
           EMAIL_BODY=$(cat <<EOF
