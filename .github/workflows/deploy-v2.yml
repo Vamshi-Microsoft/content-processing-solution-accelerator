@@ -44,8 +44,12 @@ on:
       run_e2e_tests:
         description: 'Run End-to-End Tests'
         required: false
-        default: true
-        type: boolean
+        default: 'GoldenPath-Testing'
+        type: choice
+        options:
+          - 'GoldenPath-Testing'
+          - 'Smoke-Testing'
+          - 'None'
       cleanup_resources:
         description: 'Cleanup Deployed Resources'
         required: false
@@ -78,7 +82,7 @@ env:
   WAF_ENABLED: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.waf_enabled || false) || false }}
   EXP: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.EXP || false) || false }}
   CLEANUP_RESOURCES: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.cleanup_resources || true) || true }}
-  RUN_E2E_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_e2e_tests || true) || true }}
+  RUN_E2E_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
   BUILD_DOCKER_IMAGE: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.build_docker_image || false) || false }}
 
 jobs:
@@ -648,11 +652,12 @@ jobs:
           fi
 
   e2e-test:
-    if: always() && ((needs.deploy.result == 'success' && needs.deploy.outputs.CONTAINER_WEB_APPURL != '') || (github.event.inputs.existing_webapp_url != '' && github.event.inputs.existing_webapp_url != null)) && (github.event_name != 'workflow_dispatch' || github.event.inputs.run_e2e_tests == 'true' || github.event.inputs.run_e2e_tests == null)
+    if: always() && ((needs.deploy.result == 'success' && needs.deploy.outputs.CONTAINER_WEB_APPURL != '') || (github.event.inputs.existing_webapp_url != '' && github.event.inputs.existing_webapp_url != null)) && (github.event_name != 'workflow_dispatch' || (github.event.inputs.run_e2e_tests != 'none' && github.event.inputs.run_e2e_tests != '' && github.event.inputs.run_e2e_tests != null))
     needs: [docker-build, deploy]
     uses: ./.github/workflows/test-automation-v2.yml
     with:
       CP_WEB_URL: ${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || github.event.inputs.existing_webapp_url }}
+      TEST_SUITE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_e2e_tests || 'GoldenPath-Testing' }}
     secrets: inherit
 
   cleanup-deployment:

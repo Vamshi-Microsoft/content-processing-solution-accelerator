@@ -7,6 +7,11 @@ on:
             required: true
             type: string
             description: "Web URL for Content Processing"
+          TEST_SUITE:
+            required: false
+            type: string
+            default: "GoldenPath-Testing"
+            description: "Test suite to run: 'Smoke-Testing', 'GoldenPath-Testing' "
         secrets:
           EMAILNOTIFICATION_LOGICAPP_URL_TA:
             required: false
@@ -22,6 +27,7 @@ on:
 env:
     url: ${{ inputs.CP_WEB_URL }}
     accelerator_name: "Content Processing"
+    test_suite: ${{ inputs.TEST_SUITE }}
 
 jobs:
   test:
@@ -58,6 +64,7 @@ jobs:
             exit 1
           fi
           echo "Testing URL: ${{ env.url }}"
+          echo "Test Suite: ${{ env.test_suite }}"
 
 
       - name: Wait for Application to be Ready
@@ -87,7 +94,13 @@ jobs:
       - name: Run tests(1)
         id: test1
         run: |
-          xvfb-run pytest --headed --html=report/report.html --self-contained-html
+          if [ "${{ env.test_suite }}" == "gp" ]; then
+            echo "Running Golden Path Tests..."
+            xvfb-run pytest -m gp --headed --html=report/report.html --self-contained-html
+          else
+            echo "Running All Tests..."
+            xvfb-run pytest --headed --html=report/report.html --self-contained-html
+          fi
         working-directory: tests/e2e-test
         continue-on-error: true
 
@@ -100,7 +113,13 @@ jobs:
         id: test2
         if: ${{ steps.test1.outcome == 'failure' }}
         run: |
-          xvfb-run pytest --headed --html=report/report.html --self-contained-html
+          if [ "${{ env.test_suite }}" == "gp" ]; then
+            echo "Running Golden Path Tests..."
+            xvfb-run pytest -m gp --headed --html=report/report.html --self-contained-html
+          else
+            echo "Running All Tests..."
+            xvfb-run pytest --headed --html=report/report.html --self-contained-html
+          fi
         working-directory: tests/e2e-test
         continue-on-error: true
 
@@ -113,7 +132,13 @@ jobs:
         id: test3
         if: ${{ steps.test2.outcome == 'failure' }}
         run: |
-          xvfb-run pytest --headed --html=report/report.html --self-contained-html
+          if [ "${{ env.test_suite }}" == "gp" ]; then
+            echo "Running Golden Path Tests..."
+            xvfb-run pytest -m gp --headed --html=report/report.html --self-contained-html
+          else
+            echo "Running All Tests..."
+            xvfb-run pytest --headed --html=report/report.html --self-contained-html
+          fi
         working-directory: tests/e2e-test
 
       - name: Upload test report
@@ -127,7 +152,12 @@ jobs:
       - name: Generate E2E Test Summary
         if: always()
         run: |
-          echo "## 🧪 E2E Test Job Summary" >> $GITHUB_STEP_SUMMARY
+          # Determine test suite type for title
+          if [ "${{ env.test_suite }}" == "gp" ]; then
+            echo "## 🧪 E2E Test Job Summary : Golden Path testing" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 🧪 E2E Test Job Summary : Smoke testing" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -141,6 +171,7 @@ jobs:
           fi
           
           echo "| **Target URL** | [${{ env.url }}](${{ env.url }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Test Suite** | \`${{ env.test_suite }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Test Report** | [Download Artifact](${{ steps.upload_report.outputs.artifact-url }}) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
