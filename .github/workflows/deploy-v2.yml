@@ -41,6 +41,13 @@ on:
         required: false
         default: false
         type: boolean
+      
+      cleanup_resources:
+        description: 'Cleanup Deployed Resources'
+        required: false
+        default: false
+        type: boolean
+
       run_e2e_tests:
         description: 'Run End-to-End Tests'
         required: false
@@ -50,11 +57,6 @@ on:
           - 'GoldenPath-Testing'
           - 'Smoke-Testing'
           - 'None'
-      cleanup_resources:
-        description: 'Cleanup Deployed Resources'
-        required: false
-        default: false
-        type: boolean
       
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID:
         description: 'Log Analytics Workspace ID (Optional)'
@@ -568,7 +570,7 @@ jobs:
 
 
           # Export variables only after successful deploy
-          export CONTAINER_API_APPURL=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_FQDN // empty')
+          export CONTAINER_API_APPURL="https://$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_FQDN // empty')"
           echo "CONTAINER_API_APPURL=$CONTAINER_API_APPURL" >> $GITHUB_ENV
 
           export CONTAINER_API_APPNAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_NAME // empty')
