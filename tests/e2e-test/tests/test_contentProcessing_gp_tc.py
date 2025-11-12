@@ -8,7 +8,7 @@ from pages.HomePage import HomePage
 
 logger = logging.getLogger(__name__)
 
-
+@pytest.mark.gp
 def test_content_processing_golden_path(login_logout, request):
     """
     Content Processing - Validate Golden path works as expected
