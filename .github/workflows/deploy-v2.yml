@@ -424,8 +424,8 @@ jobs:
             elif [[ "$BRANCH_NAME" == "dependabotchanges" ]]; then
             BASE_TAG="dependabotchanges"
             else
-              IMAGE_TAG="pullrequest-ignore"
-              echo "Using default for branch '$BRANCH_NAME' - image tag: pullrequest-ignore"
+              IMAGE_TAG="latest"
+              echo "Using default for branch '$BRANCH_NAME' - image tag: latest"
             fi
             
             echo "Using existing Docker image tag: $IMAGE_TAG"
