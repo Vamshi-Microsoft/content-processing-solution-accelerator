@@ -94,7 +94,7 @@ jobs:
       - name: Run tests(1)
         id: test1
         run: |
-          if [ "${{ env.test_suite }}" == "gp" ]; then
+          if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
             echo "Running Golden Path Tests..."
             xvfb-run pytest -m gp --headed --html=report/report.html --self-contained-html
           else
@@ -113,7 +113,7 @@ jobs:
         id: test2
         if: ${{ steps.test1.outcome == 'failure' }}
         run: |
-          if [ "${{ env.test_suite }}" == "gp" ]; then
+          if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
             echo "Running Golden Path Tests..."
             xvfb-run pytest -m gp --headed --html=report/report.html --self-contained-html
           else
@@ -132,7 +132,7 @@ jobs:
         id: test3
         if: ${{ steps.test2.outcome == 'failure' }}
         run: |
-          if [ "${{ env.test_suite }}" == "gp" ]; then
+          if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
             echo "Running Golden Path Tests..."
             xvfb-run pytest -m gp --headed --html=report/report.html --self-contained-html
           else
@@ -153,7 +153,7 @@ jobs:
         if: always()
         run: |
           # Determine test suite type for title
-          if [ "${{ env.test_suite }}" == "gp" ]; then
+          if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
             echo "## 🧪 E2E Test Job Summary : Golden Path testing" >> $GITHUB_STEP_SUMMARY
           else
             echo "## 🧪 E2E Test Job Summary : Smoke testing" >> $GITHUB_STEP_SUMMARY
