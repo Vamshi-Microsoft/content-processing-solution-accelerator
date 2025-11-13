@@ -127,8 +127,8 @@ jobs:
         env:
           DOCKER_BUILD_SUMMARY: false
         with:
-          context: ./src
-          file: ./src/ContentProcessor.Dockerfile
+          context: ./src/ContentProcessor
+          file: ./src/ContentProcessor/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_TEST_LOGIN_SERVER }}/contentprocessor:${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}
@@ -139,8 +139,8 @@ jobs:
         env:
           DOCKER_BUILD_SUMMARY: false
         with:
-          context: ./src
-          file: ./src/ContentProcessorAPI.Dockerfile
+          context: ./src/ContentProcessorAPI
+          file: ./src/ContentProcessorAPI/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_TEST_LOGIN_SERVER }}/contentprocessorapi:${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}
@@ -151,8 +151,8 @@ jobs:
         env:
           DOCKER_BUILD_SUMMARY: false
         with:
-          context: ./src
-          file: ./src/ContentProcessorWeb.Dockerfile
+          context: ./src/ContentProcessorWeb
+          file: ./src/ContentProcessorWeb/Dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_TEST_LOGIN_SERVER }}/contentprocessorweb:${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}
@@ -710,7 +710,7 @@ jobs:
             echo "Using image tag from deploy job: $IMAGE_TAG"
           fi
           
-          if [[ -n "$IMAGE_TAG" && "$IMAGE_TAG" != "latest_waf" && "$IMAGE_TAG" != "dev" && "$IMAGE_TAG" != "demo" ]]; then
+          if [[ -n "$IMAGE_TAG" && "$IMAGE_TAG" != "latest" && "$IMAGE_TAG" != "dev" && "$IMAGE_TAG" != "demo" && "$IMAGE_TAG" != "hotfix" && "$IMAGE_TAG" != "dependabotchanges" ]]; then
             echo "Deleting Docker images with tag: $IMAGE_TAG"
             
             # Delete the main image
@@ -744,8 +744,6 @@ jobs:
           azd down --purge --force --no-prompt
           echo "Deployment deleted successfully."
 
-
-
       - name: Logout from Azure
         if: always()
         run: |
@@ -773,21 +771,12 @@ jobs:
             echo "### ✅ Cleanup Details" >> $GITHUB_STEP_SUMMARY
             echo "- Successfully deleted Azure deployment using \`azd down --purge\`" >> $GITHUB_STEP_SUMMARY
             echo "- Resource group \`${{ env.RESOURCE_GROUP_NAME }}\` and all associated resources removed" >> $GITHUB_STEP_SUMMARY
-            if [[ "${{ env.IMAGE_TAG }}" != "latest_waf" && "${{ env.IMAGE_TAG }}" != "dev" && "${{ env.IMAGE_TAG }}" != "demo" && "${{ env.IMAGE_TAG }}" != "hotfix" && "${{ env.IMAGE_TAG }}" != "dependabotchanges" ]]; then
-              echo "- Removed custom Docker images from ACR with tag: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- Preserved standard Docker images (using branch tag: \`${{ env.IMAGE_TAG }}\`)" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "- Azure environment \`${{ env.ENV_NAME }}\` successfully cleaned up" >> $GITHUB_STEP_SUMMARY
           else
             echo "### ❌ Cleanup Failed" >> $GITHUB_STEP_SUMMARY
             echo "- Cleanup process encountered an error" >> $GITHUB_STEP_SUMMARY
             echo "- Manual cleanup may be required for:" >> $GITHUB_STEP_SUMMARY
             echo "  - Resource Group: \`${{ env.RESOURCE_GROUP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
             echo "  - Environment: \`${{ env.ENV_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-            if [[ "${{ env.IMAGE_TAG }}" != "latest_waf" && "${{ env.IMAGE_TAG }}" != "dev" && "${{ env.IMAGE_TAG }}" != "demo" && "${{ env.IMAGE_TAG }}" != "hotfix" && "${{ env.IMAGE_TAG }}" != "dependabotchanges" ]]; then
-              echo "  - Docker images with tag: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
-            fi
             echo "- Check the cleanup-deployment job logs for detailed error information" >> $GITHUB_STEP_SUMMARY
           fi
 
