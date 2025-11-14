@@ -627,120 +627,6 @@ jobs:
       TEST_SUITE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_e2e_tests || 'GoldenPath-Testing' }}
     secrets: inherit
 
-  cleanup-deployment:
-    if: always() && needs.deploy.result == 'success' && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && github.event.inputs.existing_webapp_url == '' && (github.event_name != 'workflow_dispatch' || github.event.inputs.cleanup_resources == 'true' || github.event.inputs.cleanup_resources == null)
-    needs: [docker-build, deploy, e2e-test]
-    runs-on: ubuntu-latest
-    env:
-      RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
-      AZURE_LOCATION: ${{ needs.deploy.outputs.AZURE_LOCATION }}
-      AZURE_ENV_OPENAI_LOCATION: ${{ needs.deploy.outputs.AZURE_ENV_OPENAI_LOCATION }}
-      ENV_NAME: ${{ needs.deploy.outputs.ENV_NAME }}
-      IMAGE_TAG: ${{ needs.deploy.outputs.IMAGE_TAG }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Azure Developer CLI
-        run: |
-          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
-          azd version
-
-      - name: Login to Azure
-        run: |
-          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
-          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Azure CLI for Docker cleanup
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-          az --version
-
-      - name: Login to Azure CLI for Docker cleanup
-        run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-
-      - name: Delete Docker Images from ACR
-        if: github.event.inputs.existing_webapp_url == ''
-        run: |
-          set -e
-          echo "🗑️ Cleaning up Docker images from Azure Container Registry..."
-          
-          # Determine the image tag to delete - check if docker-build job ran
-          if [[ "${{ needs.docker-build.result }}" == "success" ]]; then
-            IMAGE_TAG="${{ needs.docker-build.outputs.IMAGE_TAG }}"
-            echo "Using image tag from docker-build job: $IMAGE_TAG"
-          else
-            IMAGE_TAG="${{ needs.deploy.outputs.IMAGE_TAG }}"
-            echo "Using image tag from deploy job: $IMAGE_TAG"
-          fi
-          
-          if [[ -n "$IMAGE_TAG" && "$IMAGE_TAG" != "latest" && "$IMAGE_TAG" != "dev" && "$IMAGE_TAG" != "demo" && "$IMAGE_TAG" != "hotfix" && "$IMAGE_TAG" != "dependabotchanges" ]]; then
-            echo "Deleting Docker images with tag: $IMAGE_TAG"
-            
-            # Delete the main image
-            echo "Deleting image: ${{ secrets.ACR_TEST_LOGIN_SERVER }}/webapp:$IMAGE_TAG"
-            az acr repository delete --name $(echo "${{ secrets.ACR_TEST_LOGIN_SERVER }}" | cut -d'.' -f1) \
-              --image webapp:$IMAGE_TAG --yes || echo "Warning: Failed to delete main image or image not found"
-            
-            echo "✅ Docker images cleanup completed"
-          else
-            echo "⚠️ Skipping Docker image cleanup (using standard branch image: $IMAGE_TAG)"
-          fi
-
-      - name: Select Environment and Delete deployment using azd
-        run: |
-          set -e
-          # Try to select the environment if it exists, otherwise create a minimal environment for cleanup
-          azd env list
-          if azd env list | grep -q "${{ env.ENV_NAME }}"; then
-            echo "Environment ${{ env.ENV_NAME }} found, selecting it..."
-            azd env select ${{ env.ENV_NAME }}
-          else
-            echo "Environment ${{ env.ENV_NAME }} not found, creating minimal environment for cleanup..."
-            azd env new ${{ env.ENV_NAME }} --no-prompt
-            azd env set AZURE_RESOURCE_GROUP "${{ env.RESOURCE_GROUP_NAME }}"
-            azd env set AZURE_SUBSCRIPTION_ID "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-            azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="${{ env.AZURE_ENV_OPENAI_LOCATION }}"
-            azd env set AZURE_LOCATION="${{ env.AZURE_LOCATION }}"
-          fi
-
-          echo "Deleting deployment..."
-          azd down --purge --force --no-prompt
-          echo "Deployment deleted successfully."
-
-      - name: Logout from Azure
-        if: always()
-        run: |
-          azd auth logout
-          az logout || echo "Warning: Failed to logout from Azure CLI"
-          echo "Logged out from Azure."
-      
-      - name: Generate Cleanup Job Summary
-        if: always()
-        run: |
-          echo "## 🧹 Cleanup Job Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resource Group** | \`${{ env.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Azure Region (Infrastructure)** | \`${{ env.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Azure OpenAI Region** | \`${{ env.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image Tag** | \`${{ env.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "### ✅ Cleanup Details" >> $GITHUB_STEP_SUMMARY
-            echo "- Successfully deleted Azure deployment using \`azd down --purge\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Resource group \`${{ env.RESOURCE_GROUP_NAME }}\` and all associated resources removed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ Cleanup Failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Cleanup process encountered an error" >> $GITHUB_STEP_SUMMARY
-            echo "- Manual cleanup may be required for:" >> $GITHUB_STEP_SUMMARY
-            echo "  - Resource Group: \`${{ env.RESOURCE_GROUP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Check the cleanup-deployment job logs for detailed error information" >> $GITHUB_STEP_SUMMARY
-          fi
-
   send-notification:
     if: always()
     needs: [docker-build, deploy, e2e-test]
@@ -870,3 +756,117 @@ jobs:
           curl -X POST "${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}" \
             -H "Content-Type: application/json" \
             -d "$EMAIL_BODY" || echo "Failed to send existing URL test failure notification"
+
+  cleanup-deployment:
+    if: always() && needs.deploy.result == 'success' && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && github.event.inputs.existing_webapp_url == '' && (github.event_name != 'workflow_dispatch' || github.event.inputs.cleanup_resources == 'true' || github.event.inputs.cleanup_resources == null)
+    needs: [docker-build, deploy, e2e-test]
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
+      AZURE_LOCATION: ${{ needs.deploy.outputs.AZURE_LOCATION }}
+      AZURE_ENV_OPENAI_LOCATION: ${{ needs.deploy.outputs.AZURE_ENV_OPENAI_LOCATION }}
+      ENV_NAME: ${{ needs.deploy.outputs.ENV_NAME }}
+      IMAGE_TAG: ${{ needs.deploy.outputs.IMAGE_TAG }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Azure Developer CLI
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
+          azd version
+
+      - name: Login to Azure
+        run: |
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Azure CLI for Docker cleanup
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          az --version
+
+      - name: Login to Azure CLI for Docker cleanup
+        run: |
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+
+      - name: Delete Docker Images from ACR
+        if: github.event.inputs.existing_webapp_url == ''
+        run: |
+          set -e
+          echo "🗑️ Cleaning up Docker images from Azure Container Registry..."
+          
+          # Determine the image tag to delete - check if docker-build job ran
+          if [[ "${{ needs.docker-build.result }}" == "success" ]]; then
+            IMAGE_TAG="${{ needs.docker-build.outputs.IMAGE_TAG }}"
+            echo "Using image tag from docker-build job: $IMAGE_TAG"
+          else
+            IMAGE_TAG="${{ needs.deploy.outputs.IMAGE_TAG }}"
+            echo "Using image tag from deploy job: $IMAGE_TAG"
+          fi
+          
+          if [[ -n "$IMAGE_TAG" && "$IMAGE_TAG" != "latest" && "$IMAGE_TAG" != "dev" && "$IMAGE_TAG" != "demo" && "$IMAGE_TAG" != "hotfix" && "$IMAGE_TAG" != "dependabotchanges" ]]; then
+            echo "Deleting Docker images with tag: $IMAGE_TAG"
+            
+            # Delete the main image
+            echo "Deleting image: ${{ secrets.ACR_TEST_LOGIN_SERVER }}/webapp:$IMAGE_TAG"
+            az acr repository delete --name $(echo "${{ secrets.ACR_TEST_LOGIN_SERVER }}" | cut -d'.' -f1) \
+              --image webapp:$IMAGE_TAG --yes || echo "Warning: Failed to delete main image or image not found"
+            
+            echo "✅ Docker images cleanup completed"
+          else
+            echo "⚠️ Skipping Docker image cleanup (using standard branch image: $IMAGE_TAG)"
+          fi
+
+      - name: Select Environment and Delete deployment using azd
+        run: |
+          set -e
+          # Try to select the environment if it exists, otherwise create a minimal environment for cleanup
+          azd env list
+          if azd env list | grep -q "${{ env.ENV_NAME }}"; then
+            echo "Environment ${{ env.ENV_NAME }} found, selecting it..."
+            azd env select ${{ env.ENV_NAME }}
+          else
+            echo "Environment ${{ env.ENV_NAME }} not found, creating minimal environment for cleanup..."
+            azd env new ${{ env.ENV_NAME }} --no-prompt
+            azd env set AZURE_RESOURCE_GROUP "${{ env.RESOURCE_GROUP_NAME }}"
+            azd env set AZURE_SUBSCRIPTION_ID "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="${{ env.AZURE_ENV_OPENAI_LOCATION }}"
+            azd env set AZURE_LOCATION="${{ env.AZURE_LOCATION }}"
+          fi
+
+          echo "Deleting deployment..."
+          azd down --purge --force --no-prompt
+          echo "Deployment deleted successfully."
+
+      - name: Logout from Azure
+        if: always()
+        run: |
+          azd auth logout
+          az logout || echo "Warning: Failed to logout from Azure CLI"
+          echo "Logged out from Azure."
+      
+      - name: Generate Cleanup Job Summary
+        if: always()
+        run: |
+          echo "## 🧹 Cleanup Job Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Group** | \`${{ env.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Azure Region (Infrastructure)** | \`${{ env.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Azure OpenAI Region** | \`${{ env.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Image Tag** | \`${{ env.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "### ✅ Cleanup Details" >> $GITHUB_STEP_SUMMARY
+            echo "- Successfully deleted Azure deployment using \`azd down --purge\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Resource group \`${{ env.RESOURCE_GROUP_NAME }}\` and all associated resources removed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Cleanup Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Cleanup process encountered an error" >> $GITHUB_STEP_SUMMARY
+            echo "- Manual cleanup may be required for:" >> $GITHUB_STEP_SUMMARY
+            echo "  - Resource Group: \`${{ env.RESOURCE_GROUP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Check the cleanup-deployment job logs for detailed error information" >> $GITHUB_STEP_SUMMARY
+          fi
