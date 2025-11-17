@@ -484,8 +484,7 @@ jobs:
           azd env set AZURE_LOCATION="$AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_CONTAINER_IMAGE_TAG="${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-          azd env set AZURE_DEV_COLLECT_TELEMETRY="no"
-          
+          azd env set AZURE_DEV_COLLECT_TELEMETRY="${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}"          
           # Set ACR name only when building Docker image
           if [[ "${{ env.BUILD_DOCKER_IMAGE }}" == "true" ]]; then
             # Extract ACR name from login server and set as environment variable
