@@ -8,15 +8,16 @@ from pages.HomePage import HomePage
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.mark.gp
 def test_content_processing_golden_path(login_logout, request):
     """
     Content Processing - Validate Golden path works as expected
-    
+
     Executes golden path test steps for Content Processing Solution Accelerator with detailed logging.
     """
     request.node._nodeid = "Content Processing - Validate Golden path works as expected"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -51,12 +52,12 @@ def test_content_processing_golden_path(login_logout, request):
 def test_content_processing_sections_display(login_logout, request):
     """
     Content Processing - All the sections need to be displayed properly
-    
-    Validates that all main sections (Processing Queue, Output Review, Source Document) 
+
+    Validates that all main sections (Processing Queue, Output Review, Source Document)
     are displayed correctly on the home page.
     """
     request.node._nodeid = "Content Processing - All the sections need to be displayed properly"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -72,11 +73,11 @@ def test_content_processing_sections_display(login_logout, request):
 def test_content_processing_file_upload(login_logout, request):
     """
     Content Processing - Files need to be uploaded successfully
-    
+
     Validates that files can be uploaded successfully for both Invoice and Property schemas.
     """
     request.node._nodeid = "Content Processing - Files need to be uploaded successfully"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -102,11 +103,11 @@ def test_content_processing_file_upload(login_logout, request):
 def test_content_processing_refresh_screen(login_logout, request):
     """
     Content Processing - Refreshing the screen
-    
+
     Validates that screen refresh works properly after uploading files.
     """
     request.node._nodeid = "Content Processing - Refreshing the screen"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -131,12 +132,12 @@ def test_content_processing_refresh_screen(login_logout, request):
 def test_content_processing_schema_validation(login_logout, request):
     """
     Content Processing - Validate Content Processing - Alert user to upload file correctly as per the selected schema
-    
-    Validates that the system correctly displays the selected schema and alerts users to upload 
+
+    Validates that the system correctly displays the selected schema and alerts users to upload
     files specific to the selected schema (Invoice and Property Loss Damage Claim Form).
     """
     request.node._nodeid = "Content Processing - Validate Content Processing - Alert user to upload file correctly as per the selected schema"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -166,12 +167,12 @@ def test_content_processing_schema_validation(login_logout, request):
 def test_content_processing_import_without_schema(login_logout, request):
     """
     Content Processing - Once cleared Select Schema dropdown, import content shows validation
-    
-    Validates that when no schema is selected (or schema is cleared), clicking Import Content 
+
+    Validates that when no schema is selected (or schema is cleared), clicking Import Content
     button displays appropriate validation message prompting user to select a schema first.
     """
     request.node._nodeid = "Content Processing - Once cleared Select Schema dropdown, import content shows validation"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -195,12 +196,12 @@ def test_content_processing_import_without_schema(login_logout, request):
 def test_content_processing_delete_file(login_logout, request):
     """
     Content Processing - Delete File
-    
+
     Validates that uploaded files can be successfully deleted from the processing queue.
     Uploads a file first, then verifies the delete functionality works correctly.
     """
     request.node._nodeid = "Content Processing - Delete File"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -224,12 +225,12 @@ def test_content_processing_delete_file(login_logout, request):
 def test_content_processing_search_functionality(login_logout, request):
     """
     Content Processing - Search box inside extracted results
-    
+
     Validates that the search functionality works correctly in the extracted results section.
     Uploads an Invoice file, waits for processing to complete, and then validates search functionality.
     """
     request.node._nodeid = "Content Processing - Search box inside extracted results"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -256,12 +257,12 @@ def test_content_processing_search_functionality(login_logout, request):
 def test_content_processing_collapsible_panels(login_logout, request):
     """
     Content Processing - Collapsible section for each panel
-    
-    Validates that each panel (Processing Queue, Output Review, Source Document) can be 
+
+    Validates that each panel (Processing Queue, Output Review, Source Document) can be
     collapsed and expanded correctly, ensuring the UI controls work as expected.
     """
     request.node._nodeid = "Content Processing - Collapsible section for each panel"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -285,12 +286,12 @@ def test_content_processing_collapsible_panels(login_logout, request):
 def test_content_processing_api_documentation(login_logout, request):
     """
     Content Processing - API Document
-    
-    Validates that the API Documentation link opens correctly in a new page and displays 
+
+    Validates that the API Documentation link opens correctly in a new page and displays
     all required API documentation sections including contentprocessor, schemavault, and Schemas.
     """
     request.node._nodeid = "Content Processing - API Document"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -314,12 +315,12 @@ def test_content_processing_api_documentation(login_logout, request):
 def test_content_processing_expandable_process_steps(login_logout, request):
     """
     Content Processing - Expandable section under each process
-    
+
     Validates that each process step (extract, map, evaluate) can be expanded and collapsed correctly,
     and displays the expected content and status information.
     """
     request.node._nodeid = "Content Processing - Expandable section under each process"
-    
+
     page = login_logout
     home = HomePage(page)
 
@@ -341,4 +342,3 @@ def test_content_processing_expandable_process_steps(login_logout, request):
         except Exception:  # pylint: disable=broad-exception-caught
             logger.error(f"Step failed: {description}", exc_info=True)
             raise
-
