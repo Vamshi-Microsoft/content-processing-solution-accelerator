@@ -633,6 +633,22 @@ jobs:
     env:
         accelerator_name: "Content Processing"
     steps:
+      - name: Determine Test Suite Display Name
+        id: test_suite
+        run: |
+          # Determine test suite display name based on RUN_E2E_TESTS value
+          if [ "${{ env.RUN_E2E_TESTS }}" = "GoldenPath-Testing" ]; then
+            TEST_SUITE_NAME="Golden Path Testing"
+          elif [ "${{ env.RUN_E2E_TESTS }}" = "Smoke-Testing" ]; then
+            TEST_SUITE_NAME="Smoke Testing"
+          elif [ "${{ env.RUN_E2E_TESTS }}" = "None" ]; then
+            TEST_SUITE_NAME="None"
+          else
+            TEST_SUITE_NAME="${{ env.RUN_E2E_TESTS }}"
+          fi
+          echo "TEST_SUITE_NAME=$TEST_SUITE_NAME" >> $GITHUB_OUTPUT
+          echo "Test Suite: $TEST_SUITE_NAME"
+
       - name: Send Quota Failure Notification
         if: needs.deploy.result == 'failure' && needs.deploy.outputs.QUOTA_FAILED == 'true'
         run: |
@@ -674,6 +690,7 @@ jobs:
           WEBAPP_URL="${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || github.event.inputs.existing_webapp_url }}"
           RESOURCE_GROUP="${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}"
           TEST_REPORT_URL="${{ needs.e2e-test.outputs.TEST_REPORT_URL }}"
+          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
           
           # Create email body based on test result
           if [ "${{ needs.e2e-test.result }}" = "skipped" ]; then
@@ -687,7 +704,7 @@ jobs:
           else
             EMAIL_BODY=$(cat <<EOF
           {
-            "body": "<p>Dear Team,</p><p>We would like to inform you that the ${{ env.accelerator_name }} deployment and testing process has completed successfully.</p><p><strong>Deployment Details:</strong><br>• Resource Group: ${RESOURCE_GROUP}<br>• Web App URL: <a href='${WEBAPP_URL}'>${WEBAPP_URL}</a><br>• E2E Tests: Passed<br>• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a></p><p><strong>Configuration:</strong><br>• WAF Enabled: ${{ env.WAF_ENABLED }}<br>• EXP Enabled: ${{ env.EXP }}</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
+            "body": "<p>Dear Team,</p><p>We would like to inform you that the ${{ env.accelerator_name }} deployment and testing process has completed successfully.</p><p><strong>Deployment Details:</strong><br>• Resource Group: ${RESOURCE_GROUP}<br>• Web App URL: <a href='${WEBAPP_URL}'>${WEBAPP_URL}</a><br>• E2E Tests: Passed ✅<br>• Test Suite: ${TEST_SUITE_NAME}<br>• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a></p><p><strong>Configuration:</strong><br>• WAF Enabled: ${{ env.WAF_ENABLED }}<br>• EXP Enabled: ${{ env.EXP }}</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
             "subject": "${{ env.accelerator_name }} Pipeline - Test Automation - Success"
           }
           EOF
@@ -705,10 +722,11 @@ jobs:
           TEST_REPORT_URL="${{ needs.e2e-test.outputs.TEST_REPORT_URL }}"
           WEBAPP_URL="${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || github.event.inputs.existing_webapp_url }}"
           RESOURCE_GROUP="${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}"
+          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
           
           EMAIL_BODY=$(cat <<EOF
           {
-            "body": "<p>Dear Team,</p><p>We would like to inform you that ${{ env.accelerator_name }} accelerator test automation process has encountered issues and failed to complete successfully.</p><p><strong>Deployment Details:</strong><br>• Resource Group: ${RESOURCE_GROUP}<br>• Web App URL: <a href='${WEBAPP_URL}'>${WEBAPP_URL}</a><br>• Deployment Status: ✅ Success<br>• E2E Tests: ❌ Failed</p><p><strong>Test Details:</strong><br>• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a></p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Please investigate the matter at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>",
+            "body": "<p>Dear Team,</p><p>We would like to inform you that ${{ env.accelerator_name }} accelerator test automation process has encountered issues and failed to complete successfully.</p><p><strong>Deployment Details:</strong><br>• Resource Group: ${RESOURCE_GROUP}<br>• Web App URL: <a href='${WEBAPP_URL}'>${WEBAPP_URL}</a><br>• Deployment Status: ✅ Success<br>• E2E Tests: ❌ Failed<br>• Test Suite: ${TEST_SUITE_NAME}</p><p><strong>Test Details:</strong><br>• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a></p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Please investigate the matter at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>",
             "subject": "${{ env.accelerator_name }} Pipeline - Test Automation - Failed"
           }
           EOF
@@ -725,9 +743,11 @@ jobs:
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           EXISTING_URL="${{ github.event.inputs.existing_webapp_url }}"
           TEST_REPORT_URL="${{ needs.e2e-test.outputs.TEST_REPORT_URL }}"
+          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
+          
           EMAIL_BODY=$(cat <<EOF
           {
-            "body": "<p>Dear Team,</p><p>The ${{ env.accelerator_name }} pipeline executed against the <strong>existing WebApp URL</strong> and testing process has completed successfully.</p><p><strong>Test Results:</strong><br>• Status: ✅ Passed<br>${TEST_REPORT_URL:+• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a>}<br>• Target URL: <a href='${EXISTING_URL}'>${EXISTING_URL}</a></p><p><strong>Deployment:</strong> Skipped</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
+            "body": "<p>Dear Team,</p><p>The ${{ env.accelerator_name }} pipeline executed against the <strong>existing WebApp URL</strong> and testing process has completed successfully.</p><p><strong>Test Results:</strong><br>• Status: ✅ Passed<br>• Test Suite: ${TEST_SUITE_NAME}<br>${TEST_REPORT_URL:+• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a>}<br>• Target URL: <a href='${EXISTING_URL}'>${EXISTING_URL}</a></p><p><strong>Deployment:</strong> Skipped</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
             "subject": "${{ env.accelerator_name }} Pipeline - Test Automation Passed (Existing URL)"
           }
           EOF
@@ -744,9 +764,11 @@ jobs:
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           EXISTING_URL="${{ github.event.inputs.existing_webapp_url }}"
           TEST_REPORT_URL="${{ needs.e2e-test.outputs.TEST_REPORT_URL }}"
+          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
+          
           EMAIL_BODY=$(cat <<EOF
           {
-            "body": "<p>Dear Team,</p><p>The ${{ env.accelerator_name }} pipeline executed against the <strong>existing WebApp URL</strong> and the test automation has encountered issues and failed to complete successfully.</p><p><strong>Failure Details:</strong><br>• Target URL: <a href='${EXISTING_URL}'>${EXISTING_URL}</a><br>${TEST_REPORT_URL:+• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a>}<br>• Deployment: Skipped</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
+            "body": "<p>Dear Team,</p><p>The ${{ env.accelerator_name }} pipeline executed against the <strong>existing WebApp URL</strong> and the test automation has encountered issues and failed to complete successfully.</p><p><strong>Failure Details:</strong><br>• Target URL: <a href='${EXISTING_URL}'>${EXISTING_URL}</a><br>${TEST_REPORT_URL:+• Test Report: <a href='${TEST_REPORT_URL}'>View Report</a>}<br>• Test Suite: ${TEST_SUITE_NAME}<br>• Deployment: Skipped</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
             "subject": "${{ env.accelerator_name }} Pipeline - Test Automation Failed (Existing URL)"
           }
           EOF
