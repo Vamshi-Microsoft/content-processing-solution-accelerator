@@ -358,13 +358,13 @@ jobs:
             $UNIQUE_RG_NAME = "arg-${ACCL_NAME}-${SHORT_UUID}"
             echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $env:GITHUB_ENV
             echo "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
-          }
+          fi
 
       - name: Setup Azure Developer CLI
-        shell: bash
+        shell: pwsh
         run: |
-          curl -fsSL https://aka.ms/install-azd.sh | bash
-          azd version           
+          powershell -ex AllSigned -c "Invoke-RestMethod 'https://aka.ms/install-azd.ps1' | Invoke-Expression"
+          azd version
 
       - name: Login to Azure
         id: login-azure
@@ -487,8 +487,13 @@ jobs:
           echo "EXP: ${{ env.EXP }}"
           echo "Using Docker Image Tag: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
           
-          # Install azd (Azure Developer CLI)
-          curl -fsSL https://aka.ms/install-azd.sh | bash
+          # Install azd (Azure Developer CLI) - Skip if already installed
+          if ! command -v azd &> /dev/null; then
+            echo "Installing Azure Developer CLI..."
+            powershell -ex AllSigned -c "Invoke-RestMethod 'https://aka.ms/install-azd.ps1' | Invoke-Expression"
+          else
+            echo "Azure Developer CLI already installed"
+          fi
 
           # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
           current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.%7NZ")
@@ -828,9 +833,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Azure Developer CLI
-        shell: bash
+        shell: pwsh
         run: |
-          curl -fsSL https://aka.ms/install-azd.sh | bash
+          powershell -ex AllSigned -c "Invoke-RestMethod 'https://aka.ms/install-azd.ps1' | Invoke-Expression"
           azd version
 
       - name: Login to Azure
