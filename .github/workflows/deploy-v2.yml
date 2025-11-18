@@ -99,18 +99,18 @@ jobs:
 
       - name: Generate Unique Docker Image Tag
         id: generate_docker_tag
-        shell: bash
+        shell: pwsh
         run: |
           echo "🔨 Building new Docker image - generating unique tag..."
           # Generate unique tag for manual deployment runs
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          RUN_ID="${{ github.run_id }}"
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          $TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
+          $RUN_ID = "${{ github.run_id }}"
+          $BRANCH_NAME = "${{ github.head_ref || github.ref_name }}"
           # Sanitize branch name for Docker tag (replace invalid characters with hyphens)
-          CLEAN_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-          UNIQUE_TAG="${CLEAN_BRANCH_NAME}-${TIMESTAMP}-${RUN_ID}"
-          echo "IMAGE_TAG=$UNIQUE_TAG" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$UNIQUE_TAG" >> $GITHUB_OUTPUT
+          $CLEAN_BRANCH_NAME = $BRANCH_NAME -replace '[^a-zA-Z0-9._-]', '-' -replace '--+', '-' -replace '^-|-$', ''
+          $UNIQUE_TAG = "${CLEAN_BRANCH_NAME}-${TIMESTAMP}-${RUN_ID}"
+          echo "IMAGE_TAG=$UNIQUE_TAG" >> $env:GITHUB_ENV
+          echo "IMAGE_TAG=$UNIQUE_TAG" >> $env:GITHUB_OUTPUT
           echo "Generated unique Docker tag: $UNIQUE_TAG"
 
       - name: Set up Docker Buildx
@@ -344,20 +344,21 @@ jobs:
 
       - name: Generate Resource Group Name
         id: generate_rg_name
-        shell: bash
+        shell: pwsh
         run: |
           # Check if a resource group name was provided as input
-          if [[ -n "${{ github.event.inputs.resource_group_name }}" ]]; then
+          if ("${{ github.event.inputs.resource_group_name }}") {
             echo "Using provided Resource Group name: ${{ github.event.inputs.resource_group_name }}"
-            echo "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource_group_name }}" >> $GITHUB_ENV
-          else
+            echo "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource_group_name }}" >> $env:GITHUB_ENV
+          } else {
             echo "Generating a unique resource group name..."
-            ACCL_NAME="cp"  # Account name as specified
-            SHORT_UUID=$(uuidgen | cut -d'-' -f1)
-            UNIQUE_RG_NAME="arg-${ACCL_NAME}-${SHORT_UUID}"
-            echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $GITHUB_ENV
+            $ACCL_NAME = "cp"  # Account name as specified
+            # Generate UUID using PowerShell
+            $SHORT_UUID = ([guid]::NewGuid().ToString().Substring(0, 8))
+            $UNIQUE_RG_NAME = "arg-${ACCL_NAME}-${SHORT_UUID}"
+            echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $env:GITHUB_ENV
             echo "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
-          fi
+          }
 
       - name: Setup Azure Developer CLI
         shell: bash
@@ -395,14 +396,14 @@ jobs:
 
       - name: Generate Unique Solution Prefix
         id: generate_solution_prefix
-        shell: bash
+        shell: pwsh
         run: |
-          set -e
-          COMMON_PART="psldg"
-          TIMESTAMP=$(date +%s)  
-          UPDATED_TIMESTAMP=$(echo $TIMESTAMP | tail -c 6) 
-          UNIQUE_SOLUTION_PREFIX="${COMMON_PART}${UPDATED_TIMESTAMP}"
-          echo "SOLUTION_PREFIX=${UNIQUE_SOLUTION_PREFIX}" >> $GITHUB_ENV
+          $ErrorActionPreference = "Stop"
+          $COMMON_PART = "psldg"
+          $TIMESTAMP = [int][double]::Parse((Get-Date -UFormat %s))
+          $UPDATED_TIMESTAMP = $TIMESTAMP.ToString().Substring([Math]::Max(0, $TIMESTAMP.ToString().Length - 5))
+          $UNIQUE_SOLUTION_PREFIX = "${COMMON_PART}${UPDATED_TIMESTAMP}"
+          echo "SOLUTION_PREFIX=${UNIQUE_SOLUTION_PREFIX}" >> $env:GITHUB_ENV
           echo "Generated SOLUTION_PREFIX: ${UNIQUE_SOLUTION_PREFIX}" 
 
       - name: Determine Docker Image Tag
@@ -450,15 +451,15 @@ jobs:
 
       - name: Generate Unique Environment Name
         id: generate_env_name
-        shell: bash
+        shell: pwsh
         run: |
-          COMMON_PART="pslc"
-          TIMESTAMP=$(date +%s)
-          UPDATED_TIMESTAMP=$(echo $TIMESTAMP | tail -c 6)
-          UNIQUE_ENV_NAME="${COMMON_PART}${UPDATED_TIMESTAMP}"
-          echo "ENV_NAME=${UNIQUE_ENV_NAME}" >> $GITHUB_ENV
+          $COMMON_PART = "pslc"
+          $TIMESTAMP = [int][double]::Parse((Get-Date -UFormat %s))
+          $UPDATED_TIMESTAMP = $TIMESTAMP.ToString().Substring([Math]::Max(0, $TIMESTAMP.ToString().Length - 5))
+          $UNIQUE_ENV_NAME = "${COMMON_PART}${UPDATED_TIMESTAMP}"
+          echo "ENV_NAME=${UNIQUE_ENV_NAME}" >> $env:GITHUB_ENV
           echo "Generated Environment Name: ${UNIQUE_ENV_NAME}"
-          echo "ENV_NAME=${UNIQUE_ENV_NAME}" >> $GITHUB_OUTPUT
+          echo "ENV_NAME=${UNIQUE_ENV_NAME}" >> $env:GITHUB_OUTPUT
 
       - name: Configure Parameters Based on WAF Setting
         shell: bash
