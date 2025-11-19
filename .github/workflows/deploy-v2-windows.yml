@@ -641,7 +641,7 @@ jobs:
   send-notification:
     if: always()
     needs: [docker-build, deploy, e2e-test]
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
         accelerator_name: "Content Processing"
     steps:
@@ -808,11 +808,9 @@ jobs:
       ENV_NAME: ${{ needs.deploy.outputs.ENV_NAME }}
       IMAGE_TAG: ${{ needs.deploy.outputs.IMAGE_TAG }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
 
-      - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v1.0.0
+      - name: Setup Azure Developer CLI
+        uses: Azure/setup-azd@v2
 
       - name: Setup Azure CLI
         shell: bash
@@ -823,8 +821,8 @@ jobs:
       - name: Login to Azure
         shell: bash
         run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Delete Resource Group Directly (Optimized Cleanup)
         shell: bash
@@ -844,24 +842,6 @@ jobs:
           
           echo "✅ Resource group deletion initiated (running asynchronously)"
           echo "Note: Resources will be cleaned up in the background"
-          
-      - name: Cleanup azd Environment State
-        if: always()
-        shell: bash
-        run: |
-          set -e
-          echo "🧹 Cleaning up local azd environment state..."
-          
-          # Remove local azd environment to prevent state conflicts
-          if azd env list | grep -q "${{ env.ENV_NAME }}"; then
-            echo "Removing azd environment: ${{ env.ENV_NAME }}"
-            azd env select ${{ env.ENV_NAME }} || true
-            # Just remove the local state, resources already deleted
-            rm -rf ~/.azd/environments/${{ env.ENV_NAME }} || true
-            echo "✅ Local azd environment cleaned up"
-          else
-            echo "Environment ${{ env.ENV_NAME }} not found locally"
-          fi
 
       - name: Logout from Azure
         if: always()
