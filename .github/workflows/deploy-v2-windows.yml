@@ -276,15 +276,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v1.0.0
-
       - name: Setup Azure CLI
         shell: bash
         run: |
           # Azure CLI is pre-installed on Windows GitHub runners
           az --version  # Verify installation
-
+          
       - name: Try setup-azd action
         uses: Azure/setup-azd@v2
 
