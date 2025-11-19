@@ -1,4 +1,4 @@
-name: Deploy-Test-Cleanup (v2)
+name: Deploy-Test-Cleanup (v2) Windows
 on:
   # pull_request:
   #   branches:
@@ -358,21 +358,6 @@ jobs:
             "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             Write-Host "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
           }
-
-      - name: Setup Azure Developer CLI
-        shell: bash
-        run: |
-          # Install Azure Developer CLI for Windows
-          powershell -Command "Invoke-WebRequest 'https://aka.ms/install-azd.ps1' -OutFile 'install-azd.ps1'; ./install-azd.ps1"
-          azd version
-
-      - name: Login to Azure
-        id: login-azure
-        shell: bash
-        run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
-
       - name: Install Bicep CLI
         shell: bash
         run: az bicep install
@@ -824,29 +809,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Azure Developer CLI
+      - name: Setup Azure CLI
         shell: bash
         run: |
-          # Install Azure Developer CLI for Windows
-          powershell -Command "Invoke-WebRequest 'https://aka.ms/install-azd.ps1' -OutFile 'install-azd.ps1'; ./install-azd.ps1"
-          azd version
+          # Azure CLI is pre-installed on Windows GitHub runners
+          az --version  # Verify installation
 
       - name: Login to Azure
         shell: bash
         run: |
-          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
-          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Azure CLI for Docker cleanup
-        shell: bash
-        run: |
-          # Azure CLI is pre-installed on Windows GitHub runners
-          az --version
-
-      - name: Login to Azure CLI for Docker cleanup
-        shell: bash
-        run: |
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Delete Resource Group Directly (Optimized Cleanup)
         shell: bash
