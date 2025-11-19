@@ -285,6 +285,17 @@ jobs:
           # Azure CLI is pre-installed on Windows GitHub runners
           az --version  # Verify installation
 
+      - name: Try setup-azd action
+        uses: Azure/setup-azd@v1.0.0
+        continue-on-error: true
+
+      - name: If azd missing, install via winget
+        if: ${{ failure() || steps.setup-azd.outcome != 'success' }}
+        run: |
+          winget install microsoft.azd --silent --accept-package-agreements --accept-source-agreements
+      - name: Verify azd
+        run: azd --version
+
       - name: Login to Azure
         shell: bash
         run: |
