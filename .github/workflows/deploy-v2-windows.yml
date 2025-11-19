@@ -90,7 +90,7 @@ env:
 jobs:
   docker-build:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker_image == 'true'
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     outputs:
       IMAGE_TAG: ${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}
     steps:
@@ -344,20 +344,20 @@ jobs:
 
       - name: Generate Resource Group Name
         id: generate_rg_name
-        shell: bash
+        shell: powershell
         run: |
           # Check if a resource group name was provided as input
-          if [[ -n "${{ github.event.inputs.resource_group_name }}" ]]; then
-            echo "Using provided Resource Group name: ${{ github.event.inputs.resource_group_name }}"
-            echo "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource_group_name }}" >> $GITHUB_ENV
-          else
-            echo "Generating a unique resource group name..."
-            ACCL_NAME="cp"  # Account name as specified
-            SHORT_UUID=$(uuidgen | cut -d'-' -f1)
-            UNIQUE_RG_NAME="arg-${ACCL_NAME}-${SHORT_UUID}"
-            echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $GITHUB_ENV
-            echo "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
-          fi
+          if ("${{ github.event.inputs.resource_group_name }}" -ne "") {
+            Write-Host "Using provided Resource Group name: ${{ github.event.inputs.resource_group_name }}"
+            "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource_group_name }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } else {
+            Write-Host "Generating a unique resource group name..."
+            $ACCL_NAME = "cp"  # Account name as specified
+            $SHORT_UUID = ([guid]::NewGuid().ToString().Split('-')[0])
+            $UNIQUE_RG_NAME = "arg-${ACCL_NAME}-${SHORT_UUID}"
+            "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Host "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
+          }
 
       - name: Setup Azure Developer CLI
         shell: bash
