@@ -559,23 +559,21 @@ jobs:
 
       - name: Register schemas
         id: register
-        shell: bash
+        shell: pwsh
         run: |
-          echo "Registering schemas..."
-          sleep 40  # Wait for the API to be ready
+          Write-Host "Registering schemas..."
+          Start-Sleep -Seconds 40  # Wait for the API to be ready
 
-          cd src/ContentProcessorAPI/samples/schemas
-          chmod +x ./register_schema.sh
-          ./register_schema.sh ${{ env.CONTAINER_API_APPURL }}/schemavault/ schema_info_sh.json
+          Set-Location src/ContentProcessorAPI/samples/schemas
+          & .\register_schema.ps1 "${{ env.CONTAINER_API_APPURL }}/schemavault/" "schema_info_sh.json"
 
       - name: Upload sample invoice and claim data
-        shell: bash
+        shell: pwsh
         run: |
-          echo "Uploading sample data..."
-          cd src/ContentProcessorAPI/samples
-          chmod +x ./upload_files.sh
-          ./upload_files.sh ${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit ./invoices '${{ steps.register.outputs.invoice_schema_id }}'
-          ./upload_files.sh ${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit ./propertyclaims '${{ steps.register.outputs.propertylossdamageclaimform_schema_id }}'
+          Write-Host "Uploading sample data..."
+          Set-Location src/ContentProcessorAPI/samples
+          & .\upload_files.ps1 "${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit" ".\invoices" "${{ steps.register.outputs.invoice_schema_id }}"
+          & .\upload_files.ps1 "${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit" ".\propertyclaims" "${{ steps.register.outputs.propertylossdamageclaimform_schema_id }}"
 
 
       - name: Disable Auth in Web App
