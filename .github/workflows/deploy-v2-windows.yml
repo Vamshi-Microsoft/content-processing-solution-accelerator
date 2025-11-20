@@ -826,6 +826,7 @@ jobs:
       - name: Select Environment and Delete deployment using azd
         continue-on-error: true
         timeout-minutes: 2
+        shell: bash
         run: |
           set -e
           # Try to select the environment if it exists, otherwise create a minimal environment for cleanup
