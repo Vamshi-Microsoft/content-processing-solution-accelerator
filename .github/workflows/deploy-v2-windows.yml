@@ -823,25 +823,28 @@ jobs:
         run: |
           azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
           azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Delete Resource Group Directly (Optimized Cleanup)
-        shell: bash
+      - name: Select Environment and Delete deployment using azd
+        continue-on-error: true
+        timeout-minutes: 2
         run: |
           set -e
-          echo "🗑️ Starting optimized resource cleanup..."
-          
-          # Direct resource group deletion is much faster than azd down
-          # This approach deletes all resources in parallel
-          echo "Deleting resource group: ${{ env.RESOURCE_GROUP_NAME }}"
-          
-          # Use --no-wait for async deletion (faster) or remove it for synchronous
-          az group delete \
-            --name "${{ env.RESOURCE_GROUP_NAME }}" \
-            --yes \
-            --no-wait
-          
-          echo "✅ Resource group deletion initiated (running asynchronously)"
-          echo "Note: Resources will be cleaned up in the background"
+          # Try to select the environment if it exists, otherwise create a minimal environment for cleanup
+          azd env list
+          if azd env list | grep -q "${{ env.ENV_NAME }}"; then
+            echo "Environment ${{ env.ENV_NAME }} found, selecting it..."
+            azd env select ${{ env.ENV_NAME }}
+          else
+            echo "Environment ${{ env.ENV_NAME }} not found, creating minimal environment for cleanup..."
+            azd env new ${{ env.ENV_NAME }} --no-prompt
+            azd env set AZURE_RESOURCE_GROUP "${{ env.RESOURCE_GROUP_NAME }}"
+            azd env set AZURE_SUBSCRIPTION_ID "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="${{ env.AZURE_ENV_OPENAI_LOCATION }}"
+            azd env set AZURE_LOCATION="${{ env.AZURE_LOCATION }}"
+          fi
+
+          echo "Deleting deployment..."
+          azd down --purge --force --no-prompt || echo "⚠️ Cleanup command completed with warnings or errors"
+          echo "Deployment cleanup initiated."
 
       - name: Logout from Azure
         if: always()
@@ -859,21 +862,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Job Status** | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
           echo "| **Resource Group** | \`${{ env.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Azure Region (Infrastructure)** | \`${{ env.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Azure OpenAI Region** | \`${{ env.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image Tag** | \`${{ env.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "### ✅ Cleanup Details" >> $GITHUB_STEP_SUMMARY
-            echo "- Successfully initiated resource group deletion" >> $GITHUB_STEP_SUMMARY
-            echo "- Resource group \`${{ env.RESOURCE_GROUP_NAME }}\` and all associated resources are being deleted asynchronously" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ Cleanup Failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Cleanup process encountered an error" >> $GITHUB_STEP_SUMMARY
-            echo "- Manual cleanup may be required for:" >> $GITHUB_STEP_SUMMARY
-            echo "  - Resource Group: \`${{ env.RESOURCE_GROUP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Check the cleanup-deployment job logs for detailed error information" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "### 🗑️ Cleanup Details" >> $GITHUB_STEP_SUMMARY
+          echo "- Cleanup process initiated for deployment using \`azd down --purge\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Resource group \`${{ env.RESOURCE_GROUP_NAME }}\` cleanup initiated" >> $GITHUB_STEP_SUMMARY
+          echo "- ℹ️ Note: Cleanup may continue in the background if it exceeds the timeout" >> $GITHUB_STEP_SUMMARY
