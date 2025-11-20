@@ -801,6 +801,7 @@ jobs:
     if: always() && needs.deploy.result == 'success' && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && github.event.inputs.existing_webapp_url == '' && (github.event_name != 'workflow_dispatch' || github.event.inputs.cleanup_resources == 'true' || github.event.inputs.cleanup_resources == null)
     needs: [docker-build, deploy, e2e-test]
     runs-on: windows-latest
+    continue-on-error: true
     env:
       RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
       AZURE_LOCATION: ${{ needs.deploy.outputs.AZURE_LOCATION }}
@@ -820,7 +821,6 @@ jobs:
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
           az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Delete Resource Group Directly (Optimized Cleanup)
-        continue-on-error: true
         shell: bash
         id: delete_rg
         run: |
@@ -844,8 +844,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          azd auth logout
-          az logout || echo "Warning: Failed to logout from Azure CLI"
+          az logout
           echo "Logged out from Azure."
       
       - name: Generate Cleanup Job Summary
