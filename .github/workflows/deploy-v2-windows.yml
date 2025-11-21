@@ -469,94 +469,93 @@ jobs:
 
       - name: Deploy using azd up and extract values (${{ github.event.inputs.waf_enabled == 'true' && 'WAF' || 'Non-WAF' }}+${{ (github.event.inputs.EXP == 'true' || github.event.inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || github.event.inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP' }})
         id: get_output
-        shell: bash
+        shell: pwsh
         run: |
-          set -e
-          echo "Starting azd deployment..."
-          echo "WAF Enabled: ${{ env.WAF_ENABLED }}"
-          echo "EXP: ${{ env.EXP }}"
-          echo "Using Docker Image Tag: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
+          $ErrorActionPreference = "Stop"
+          Write-Host "Starting azd deployment..."
+          Write-Host "WAF Enabled: ${{ env.WAF_ENABLED }}"
+          Write-Host "EXP: ${{ env.EXP }}"
+          Write-Host "Using Docker Image Tag: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
           
           # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
-          current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.0000000Z")
+          $current_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.0000000Z")
 
-          echo "Creating environment..."
-          azd env new $ENV_NAME --no-prompt
-          echo "Environment created: $ENV_NAME"
+          Write-Host "Creating environment..."
+          azd env new $env:ENV_NAME --no-prompt
+          Write-Host "Environment created: $env:ENV_NAME"
 
-          echo "Setting default subscription..."
+          Write-Host "Setting default subscription..."
           azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         
           # Set additional parameters
           azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="$AZURE_ENV_OPENAI_LOCATION"
-          azd env set AZURE_LOCATION="$AZURE_LOCATION"
-          azd env set AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
+          azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="$env:AZURE_ENV_OPENAI_LOCATION"
+          azd env set AZURE_LOCATION="$env:AZURE_LOCATION"
+          azd env set AZURE_RESOURCE_GROUP="$env:RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_CONTAINER_IMAGE_TAG="${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
           azd env set AZURE_DEV_COLLECT_TELEMETRY="${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}"          
           # Set ACR name only when building Docker image
-          if [[ "${{ env.BUILD_DOCKER_IMAGE }}" == "true" ]]; then
+          if ("${{ env.BUILD_DOCKER_IMAGE }}" -eq "true") {
             # Extract ACR name from login server and set as environment variable
-            ACR_NAME=$(echo "${{ secrets.ACR_TEST_LOGIN_SERVER }}" )
+            $ACR_NAME = "${{ secrets.ACR_TEST_LOGIN_SERVER }}"
             azd env set AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT="$ACR_NAME"
-            echo "Set ACR name to: $ACR_NAME"
-          else
-            echo "Skipping ACR name configuration (using existing image)"
-          fi
+            Write-Host "Set ACR name to: $ACR_NAME"
+          } else {
+            Write-Host "Skipping ACR name configuration (using existing image)"
+          }
 
-          if [[ "${{ env.EXP }}" == "true" ]]; then
-            echo "✅ EXP ENABLED - Setting EXP parameters..."
+          if ("${{ env.EXP }}" -eq "true") {
+            Write-Host "✅ EXP ENABLED - Setting EXP parameters..."
             
             # Set EXP variables dynamically
-            if [[ -n "${{ github.event.inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" ]]; then
-              EXP_LOG_ANALYTICS_ID="${{ github.event.inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
-            else
-              EXP_LOG_ANALYTICS_ID="${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
-            fi
+            if ("${{ github.event.inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" -ne "") {
+              $EXP_LOG_ANALYTICS_ID = "${{ github.event.inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
+            } else {
+              $EXP_LOG_ANALYTICS_ID = "${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
+            }
             
-            if [[ -n "${{ github.event.inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" ]]; then
-              EXP_AI_PROJECT_ID="${{ github.event.inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
-            else
-              EXP_AI_PROJECT_ID="${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}"
-            fi
+            if ("${{ github.event.inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" -ne "") {
+              $EXP_AI_PROJECT_ID = "${{ github.event.inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
+            } else {
+              $EXP_AI_PROJECT_ID = "${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}"
+            }
             
-            echo "AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: $EXP_LOG_ANALYTICS_ID"
-            echo "AZURE_ENV_FOUNDRY_PROJECT_ID: $EXP_AI_PROJECT_ID"
+            Write-Host "AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: $EXP_LOG_ANALYTICS_ID"
+            Write-Host "AZURE_ENV_FOUNDRY_PROJECT_ID: $EXP_AI_PROJECT_ID"
             azd env set AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID="$EXP_LOG_ANALYTICS_ID"
             azd env set AZURE_ENV_FOUNDRY_PROJECT_ID="$EXP_AI_PROJECT_ID"
-          else
-            echo "❌ EXP DISABLED - Skipping EXP parameters"
-          fi
+          } else {
+            Write-Host "❌ EXP DISABLED - Skipping EXP parameters"
+          }
 
           # Deploy using azd up
           azd up --no-prompt
           
-          echo "✅ Deployment succeeded."
-          echo "$DEPLOY_OUTPUT"
+          Write-Host "✅ Deployment succeeded."
 
           # Get deployment outputs using azd
-          echo "Extracting deployment outputs..."
-          DEPLOY_OUTPUT=$(azd env get-values --output json)
-          echo "Deployment output: $DEPLOY_OUTPUT"
+          Write-Host "Extracting deployment outputs..."
+          $DEPLOY_OUTPUT = azd env get-values --output json | ConvertFrom-Json
+          Write-Host "Deployment output: $($DEPLOY_OUTPUT | ConvertTo-Json -Depth 10)"
           
-          if [[ -z "$DEPLOY_OUTPUT" ]]; then
-            echo "Error: Deployment output is empty. Please check the deployment logs."
+          if (-not $DEPLOY_OUTPUT) {
+            Write-Host "Error: Deployment output is empty. Please check the deployment logs."
             exit 1
-          fi
+          }
 
           # Export variables only after successful deploy
-          export CONTAINER_API_APPURL="https://$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_FQDN // empty')"
-          echo "CONTAINER_API_APPURL=$CONTAINER_API_APPURL" >> $GITHUB_ENV
+          $CONTAINER_API_APPURL = "https://$($DEPLOY_OUTPUT.CONTAINER_API_APP_FQDN)"
+          "CONTAINER_API_APPURL=$CONTAINER_API_APPURL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          export CONTAINER_API_APPNAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_NAME // empty')
-          echo "CONTAINER_API_APPNAME=$CONTAINER_API_APPNAME" >> $GITHUB_ENV
+          $CONTAINER_API_APPNAME = $DEPLOY_OUTPUT.CONTAINER_API_APP_NAME
+          "CONTAINER_API_APPNAME=$CONTAINER_API_APPNAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          export CONTAINER_WEB_APPURL="https://$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_WEB_APP_FQDN // empty')"
-          echo "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" >> $GITHUB_ENV
-          echo "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" >> $GITHUB_OUTPUT
+          $CONTAINER_WEB_APPURL = "https://$($DEPLOY_OUTPUT.CONTAINER_WEB_APP_FQDN)"
+          "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-          export CONTAINER_WEB_APPNAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_WEB_APP_NAME // empty')
-          echo "CONTAINER_WEB_APPNAME=$CONTAINER_WEB_APPNAME" >> $GITHUB_ENV
+          $CONTAINER_WEB_APPNAME = $DEPLOY_OUTPUT.CONTAINER_WEB_APP_NAME
+          "CONTAINER_WEB_APPNAME=$CONTAINER_WEB_APPNAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Register schemas
         id: register
