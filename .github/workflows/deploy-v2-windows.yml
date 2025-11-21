@@ -86,6 +86,7 @@ env:
   CLEANUP_RESOURCES: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.cleanup_resources || true) || true }}
   RUN_E2E_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
   BUILD_DOCKER_IMAGE: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.build_docker_image || false) || false }}
+  AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
 
 jobs:
   docker-build:
@@ -808,6 +809,7 @@ jobs:
       AZURE_ENV_OPENAI_LOCATION: ${{ needs.deploy.outputs.AZURE_ENV_OPENAI_LOCATION }}
       ENV_NAME: ${{ needs.deploy.outputs.ENV_NAME }}
       IMAGE_TAG: ${{ needs.deploy.outputs.IMAGE_TAG }}
+      AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
     steps:
       - name: Setup Azure CLI
         shell: bash
