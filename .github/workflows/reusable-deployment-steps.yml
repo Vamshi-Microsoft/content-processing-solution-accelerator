@@ -787,6 +787,7 @@ jobs:
     if: always()
     needs: [docker-build, deploy, e2e-test]
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
         accelerator_name: "Content Processing"
     steps:
