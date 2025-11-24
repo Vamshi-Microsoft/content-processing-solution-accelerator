@@ -494,7 +494,14 @@ jobs:
             fi
           fi
 
-      - name: Deploy using azd up and extract values (${{ inputs.waf_enabled == 'true' && 'WAF' || 'Non-WAF' }}+${{ (inputs.EXP == 'true' || inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP' }})
+      - name: Login to AZD
+        id: login-azure
+        shell: bash
+        run: |
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+
+      - name: Deploy using azd up and extract values (${{ inputs.waf_enabled == 'true' && 'WAF' || 'Non-WAF' }}+${{ (inputs.EXP == 'true' || inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP' }}) (Linux)
         id: get_output_linux
         if: runner.os == 'Linux'
         shell: bash
@@ -508,6 +515,8 @@ jobs:
           # Install azd (Azure Developer CLI)
           curl -fsSL https://aka.ms/install-azd.sh | bash
 
+          # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
+          current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.%7NZ")
 
           echo "Creating environment..."
           azd env new $ENV_NAME --no-prompt
@@ -582,7 +591,7 @@ jobs:
           export CONTAINER_WEB_APPNAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_WEB_APP_NAME // empty')
           echo "CONTAINER_WEB_APPNAME=$CONTAINER_WEB_APPNAME" >> $GITHUB_ENV
 
-      - name: Deploy using azd up and extract values (${{ inputs.waf_enabled == 'true' && 'WAF' || 'Non-WAF' }}+${{ (inputs.EXP == 'true' || inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP' }})
+      - name: Deploy using azd up and extract values (${{ inputs.waf_enabled == 'true' && 'WAF' || 'Non-WAF' }}+${{ (inputs.EXP == 'true' || inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP' }}) (Windows)
         id: get_output_windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -592,9 +601,6 @@ jobs:
           Write-Host "WAF Enabled: ${{ env.WAF_ENABLED }}"
           Write-Host "EXP: ${{ env.EXP }}"
           Write-Host "Using Docker Image Tag: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-          
-          # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
-          $current_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.0000000Z")
 
           Write-Host "Creating environment..."
           azd env new $env:ENV_NAME --no-prompt
