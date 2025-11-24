@@ -204,7 +204,7 @@ jobs:
           fi
 
   deploy:
-    name: ${{ inputs.existing_webapp_url != '' && 'Deploy Skipped' || format('Deploy ({0}+{1})', inputs.waf_enabled == true && 'WAF' || 'Non-WAF', (inputs.EXP == true || inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP') }}
+    name: Deploy (${{ inputs.waf_enabled == 'true' && 'WAF' || 'Non-WAF' }}+${{ (inputs.EXP == 'true' || inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID != '' || inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID != '') && 'EXP' || 'Non-EXP' }})
     if: always() && (inputs.trigger_type != 'workflow_dispatch' || inputs.existing_webapp_url == '' || inputs.existing_webapp_url == null)
     needs: [docker-build]
     runs-on: ${{ inputs.runner_os }}
