@@ -942,6 +942,7 @@ jobs:
     if: always() && needs.deploy.result == 'success' && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && inputs.existing_webapp_url == '' && (inputs.trigger_type != 'workflow_dispatch' || inputs.cleanup_resources == true || inputs.cleanup_resources == null)
     needs: [docker-build, deploy, e2e-test]
     runs-on: ${{ inputs.runner_os }}
+    continue-on-error: true
     env:
       RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
       AZURE_LOCATION: ${{ needs.deploy.outputs.AZURE_LOCATION }}
