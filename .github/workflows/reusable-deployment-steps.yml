@@ -1,4 +1,4 @@
-name: Reusable Deploy Steps
+name: Reusable Deployment Steps
 
 on:
   workflow_call:
@@ -949,20 +949,6 @@ jobs:
       ENV_NAME: ${{ needs.deploy.outputs.ENV_NAME }}
       IMAGE_TAG: ${{ needs.deploy.outputs.IMAGE_TAG }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Azure Developer CLI (Windows)
-        if: runner.os == 'Windows'
-        uses: Azure/setup-azd@v1.0.0
-
-      - name: Setup Azure Developer CLI (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
-          azd version
-
       - name: Setup Azure CLI
         shell: bash
         run: |
@@ -978,6 +964,7 @@ jobs:
           az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Delete Resource Group (Optimized Cleanup)
+        id: delete_rg
         shell: bash
         run: |
           set -e
@@ -991,22 +978,6 @@ jobs:
           
           echo "✅ Resource group deletion initiated (running asynchronously)"
           echo "Note: Resources will be cleaned up in the background"
-          
-      - name: Cleanup azd Environment State
-        if: always()
-        shell: bash
-        run: |
-          set -e
-          echo "🧹 Cleaning up local azd environment state..."
-          
-          if azd env list | grep -q "${{ env.ENV_NAME }}"; then
-            echo "Removing azd environment: ${{ env.ENV_NAME }}"
-            azd env select ${{ env.ENV_NAME }} || true
-            rm -rf ~/.azd/environments/${{ env.ENV_NAME }} || true
-            echo "✅ Local azd environment cleaned up"
-          else
-            echo "Environment ${{ env.ENV_NAME }} not found locally"
-          fi
 
       - name: Logout from Azure
         if: always()
@@ -1024,16 +995,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resouce Group deletion Status** | ${{ steps.delete_rg.outcome == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Resource Group** | \`${{ env.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Azure Region (Infrastructure)** | \`${{ env.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Azure OpenAI Region** | \`${{ env.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image Tag** | \`${{ env.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ job.status }}" == "success" ]]; then
+          if [[ "${{ steps.delete_rg.outcome }}" == "success" ]]; then
             echo "### ✅ Cleanup Details" >> $GITHUB_STEP_SUMMARY
-            echo "- Successfully initiated resource group deletion" >> $GITHUB_STEP_SUMMARY
-            echo "- Resource group \`${{ env.RESOURCE_GROUP_NAME }}\` and all associated resources are being deleted asynchronously" >> $GITHUB_STEP_SUMMARY
+            echo "- Successfully initiated deletion for Resource Group \`${{ env.RESOURCE_GROUP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           else
             echo "### ❌ Cleanup Failed" >> $GITHUB_STEP_SUMMARY
             echo "- Cleanup process encountered an error" >> $GITHUB_STEP_SUMMARY
