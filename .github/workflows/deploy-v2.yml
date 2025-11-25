@@ -75,8 +75,7 @@ on:
         type: string
         
   schedule:
-    # - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
-    - cron: '9 8 * * *'  # Runs at 13:37 IST (08:07 UTC) daily
+    - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
 
 jobs:
   Run:

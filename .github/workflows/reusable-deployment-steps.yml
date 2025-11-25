@@ -785,6 +785,7 @@ jobs:
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Resource Group** | \`${{ steps.check_create_rg.outputs.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Configuration** | ${{ env.WAF_ENABLED == 'true' && 'WAF' || 'Non-WAF' }}+${{ env.EXP == 'true' && 'EXP' || 'Non-EXP' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Azure Region (Infrastructure)** | \`${{ steps.set_region.outputs.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Azure OpenAI Region** | \`${{ steps.set_region.outputs.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Docker Image Tag** | \`${{ steps.determine_image_tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
@@ -793,7 +794,6 @@ jobs:
             echo "### ✅ Deployment Details" >> $GITHUB_STEP_SUMMARY
             echo "- **Container Web App URL**: [${{ env.CONTAINER_WEB_APPURL }}](${{ env.CONTAINER_WEB_APPURL }})" >> $GITHUB_STEP_SUMMARY
             echo "- **Container API App URL**: [${{ env.CONTAINER_API_APPURL }}](${{ env.CONTAINER_API_APPURL }})" >> $GITHUB_STEP_SUMMARY
-            echo "- **Configuration**: ${{ env.WAF_ENABLED == 'true' && 'WAF' || 'Non-WAF' }}+${{ env.EXP == 'true' && 'EXP' || 'Non-EXP' }}" >> $GITHUB_STEP_SUMMARY
             echo "- Successfully deployed to Azure with all resources configured" >> $GITHUB_STEP_SUMMARY
             echo "- Schemas registered and sample data uploaded successfully" >> $GITHUB_STEP_SUMMARY
           else
