@@ -103,7 +103,27 @@ jobs:
   display-configuration:
     name: Display Configuration
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
+      - name: Validate and Auto-Configure EXP
+        shell: bash
+        run: |
+          echo "🔍 Validating EXP configuration..."
+          
+          if [[ "${{ inputs.EXP }}" != "true" ]]; then
+            if [[ -n "${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" ]] || [[ -n "${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" ]]; then
+              echo "🔧 AUTO-ENABLING EXP: EXP parameter values were provided but EXP was not explicitly enabled."
+              echo ""
+              echo "You provided values for:"
+              [[ -n "${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" ]] && echo "  - Azure Log Analytics Workspace ID: '${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}'"
+              [[ -n "${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" ]] && echo "  - Azure AI Project Resource ID: '${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}'"
+              echo ""
+              echo "✅ Automatically enabling EXP to use these values."
+              echo "EXP=true" >> $GITHUB_ENV
+              echo "📌 EXP has been automatically enabled for this deployment."
+            fi
+          fi
+
       - name: Display Workflow Configuration to GitHub Summary
         shell: bash
         run: |
@@ -111,42 +131,47 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Configuration | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Trigger Type** | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Branch** | \`${{ env.BRANCH_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Runner OS** | \`${{ inputs.runner_os }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **WAF Enabled** | ${{ env.WAF_ENABLED == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **EXP Enabled** | ${{ env.EXP == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Run E2E Tests** | \`${{ env.RUN_E2E_TESTS }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Cleanup Resources** | ${{ env.CLEANUP_RESOURCES == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Build Docker Image** | ${{ env.BUILD_DOCKER_IMAGE == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ inputs.trigger_type }}" == "workflow_dispatch" && -n "${{ inputs.azure_location }}" ]]; then
-            echo "| **Azure Location** | \`${{ inputs.azure_location }}\` (User Selected) |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| **Azure Location** | Will be determined by quota check |" >> $GITHUB_STEP_SUMMARY
-          fi
           
           if [[ "${{ inputs.existing_webapp_url }}" != "" ]]; then
             echo "| **Existing WebApp URL (Skips Deployment)** | [${{ inputs.existing_webapp_url }}](${{ inputs.existing_webapp_url }}) |" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [[ -n "${{ inputs.resource_group_name }}" ]]; then
-            echo "| **Resource Group** | \`${{ inputs.resource_group_name }}\` (Pre-specified) |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Run E2E Tests** | \`${{ env.RUN_E2E_TESTS }}\` |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| **Resource Group** | Will be auto-generated |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Trigger Type** | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Branch** | \`${{ env.BRANCH_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Runner OS** | \`${{ inputs.runner_os }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| **WAF Enabled** | ${{ env.WAF_ENABLED == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **EXP Enabled** | ${{ env.EXP == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Run E2E Tests** | \`${{ env.RUN_E2E_TESTS }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Cleanup Resources** | ${{ env.CLEANUP_RESOURCES == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Build Docker Image** | ${{ env.BUILD_DOCKER_IMAGE == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
+            
+            if [[ "${{ inputs.trigger_type }}" == "workflow_dispatch" && -n "${{ inputs.azure_location }}" ]]; then
+              echo "| **Azure Location** | \`${{ inputs.azure_location }}\` (User Selected) |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| **Azure Location** | Will be determined by quota check |" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            if [[ -n "${{ inputs.resource_group_name }}" ]]; then
+              echo "| **Resource Group** | \`${{ inputs.resource_group_name }}\` (Pre-specified) |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| **Resource Group** | Will be auto-generated |" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [[ "${{ inputs.trigger_type }}" != "workflow_dispatch" ]]; then
-            echo "ℹ️ **Note:** Automatic Trigger - Using Non-WAF + Non-EXP configuration" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "ℹ️ **Note:** Manual Trigger - Using user-specified configuration" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ inputs.existing_webapp_url }}" == "" ]]; then
+            if [[ "${{ inputs.trigger_type }}" != "workflow_dispatch" ]]; then
+              echo "ℹ️ **Note:** Automatic Trigger - Using Non-WAF + Non-EXP configuration" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "ℹ️ **Note:** Manual Trigger - Using user-specified configuration" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
   docker-build:
     if: inputs.trigger_type == 'workflow_dispatch' && inputs.build_docker_image == true
     runs-on: ubuntu-latest
+    needs: display-configuration
     outputs:
       IMAGE_TAG: ${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}
     steps:
@@ -249,7 +274,7 @@ jobs:
   deploy:
     name: deploy
     if: always() && (inputs.trigger_type != 'workflow_dispatch' || inputs.existing_webapp_url == '' || inputs.existing_webapp_url == null)
-    needs: [docker-build]
+    needs: [display-configuration, docker-build]
     runs-on: ${{ inputs.runner_os }}
     outputs:
       invoice_schema_id: ${{ inputs.runner_os == 'windows-latest' && steps.register_windows.outputs.invoice_schema_id || steps.register_linux.outputs.invoice_schema_id }}
@@ -779,7 +804,7 @@ jobs:
 
   e2e-test:
     if: always() && ((needs.deploy.result == 'success' && needs.deploy.outputs.CONTAINER_WEB_APPURL != '') || (inputs.existing_webapp_url != '' && inputs.existing_webapp_url != null)) && (inputs.trigger_type != 'workflow_dispatch' || (inputs.run_e2e_tests != 'None' && inputs.run_e2e_tests != '' && inputs.run_e2e_tests != null))
-    needs: [docker-build, deploy]
+    needs: [display-configuration, docker-build, deploy]
     uses: ./.github/workflows/test-automation-v2.yml
     with:
       CP_WEB_URL: ${{ needs.deploy.outputs.CONTAINER_WEB_APPURL || inputs.existing_webapp_url }}
