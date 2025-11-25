@@ -171,6 +171,7 @@ jobs:
   docker-build:
     if: inputs.trigger_type == 'workflow_dispatch' && inputs.build_docker_image == true
     runs-on: ubuntu-latest
+    needs : display-configuration
     outputs:
       IMAGE_TAG: ${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}
     steps:
@@ -273,7 +274,7 @@ jobs:
   deploy:
     name: deploy
     if: always() && (inputs.trigger_type != 'workflow_dispatch' || inputs.existing_webapp_url == '' || inputs.existing_webapp_url == null)
-    needs: [ display-configuration ,docker-build]
+    needs: [ display-configuration, docker-build]
     runs-on: ${{ inputs.runner_os }}
     outputs:
       invoice_schema_id: ${{ inputs.runner_os == 'windows-latest' && steps.register_windows.outputs.invoice_schema_id || steps.register_linux.outputs.invoice_schema_id }}
