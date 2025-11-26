@@ -78,7 +78,7 @@ on:
 
 jobs:
   Run:
-    uses: ./.github/workflows/reusable-deployment-workflow.yml
+    uses: ./.github/workflows/deployment-orchestrator.yml
     with:
       runner_os: windows-latest
       azure_location: ${{ github.event.inputs.azure_location || 'australiaeast' }}
