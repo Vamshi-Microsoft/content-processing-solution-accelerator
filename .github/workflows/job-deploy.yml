@@ -74,31 +74,31 @@ on:
     outputs:
       invoice_schema_id:
         description: "Invoice Schema ID"
-        value: ${{ jobs.deploy.outputs.invoice_schema_id }}
+        value: ${{ jobs.deploy-linux.outputs.invoice_schema_id || jobs.deploy-windows.outputs.invoice_schema_id }}
       propertydamageclaimform_schema_id:
         description: "Property Damage Claim Form Schema ID"
-        value: ${{ jobs.deploy.outputs.propertydamageclaimform_schema_id }}
+        value: ${{ jobs.deploy-linux.outputs.propertydamageclaimform_schema_id || jobs.deploy-windows.outputs.propertydamageclaimform_schema_id }}
       RESOURCE_GROUP_NAME:
         description: "Resource Group Name"
-        value: ${{ jobs.deploy.outputs.RESOURCE_GROUP_NAME }}
+        value: ${{ jobs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       CONTAINER_WEB_APPURL:
         description: "Container Web App URL"
-        value: ${{ jobs.deploy.outputs.CONTAINER_WEB_APPURL }}
+        value: ${{ jobs.deploy-linux.outputs.CONTAINER_WEB_APPURL || jobs.deploy-windows.outputs.CONTAINER_WEB_APPURL }}
       ENV_NAME:
         description: "Environment Name"
-        value: ${{ jobs.deploy.outputs.ENV_NAME }}
+        value: ${{ jobs.azure-setup.outputs.ENV_NAME }}
       AZURE_LOCATION:
         description: "Azure Location"
-        value: ${{ jobs.deploy.outputs.AZURE_LOCATION }}
+        value: ${{ jobs.azure-setup.outputs.AZURE_LOCATION }}
       AZURE_ENV_OPENAI_LOCATION:
         description: "Azure OpenAI Location"
-        value: ${{ jobs.deploy.outputs.AZURE_ENV_OPENAI_LOCATION }}
+        value: ${{ jobs.azure-setup.outputs.AZURE_ENV_OPENAI_LOCATION }}
       IMAGE_TAG:
         description: "Docker Image Tag Used"
-        value: ${{ jobs.deploy.outputs.IMAGE_TAG }}
+        value: ${{ jobs.azure-setup.outputs.IMAGE_TAG }}
       QUOTA_FAILED:
         description: "Quota Check Failed Flag"
-        value: ${{ jobs.deploy.outputs.QUOTA_FAILED }}
+        value: ${{ jobs.azure-setup.outputs.QUOTA_FAILED }}
 
 env:
   GPT_MIN_CAPACITY: 100
@@ -108,15 +108,12 @@ env:
   BUILD_DOCKER_IMAGE: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.build_docker_image || false) || false }}
 
 jobs:
-  deploy:
-    name: deploy
+  azure-setup:
+    name: Azure Setup
     if: inputs.trigger_type != 'workflow_dispatch' || inputs.existing_webapp_url == '' || inputs.existing_webapp_url == null
-    runs-on: ${{ inputs.runner_os }}
+    runs-on: ubuntu-latest
     outputs:
-      invoice_schema_id: ${{ inputs.runner_os == 'windows-latest' && steps.register_windows.outputs.invoice_schema_id || steps.register_linux.outputs.invoice_schema_id }}
-      propertydamageclaimform_schema_id: ${{ inputs.runner_os == 'windows-latest' && steps.register_windows.outputs.propertylossdamageclaimform_schema_id || steps.register_linux.outputs.propertylossdamageclaimform_schema_id }}
       RESOURCE_GROUP_NAME: ${{ steps.check_create_rg.outputs.RESOURCE_GROUP_NAME }}
-      CONTAINER_WEB_APPURL: ${{ inputs.runner_os == 'windows-latest' && steps.get_output_windows.outputs.CONTAINER_WEB_APPURL || steps.get_output_linux.outputs.CONTAINER_WEB_APPURL }}      
       ENV_NAME: ${{ steps.generate_env_name.outputs.ENV_NAME }}
       AZURE_LOCATION: ${{ steps.set_region.outputs.AZURE_LOCATION }}
       AZURE_ENV_OPENAI_LOCATION: ${{ steps.set_region.outputs.AZURE_ENV_OPENAI_LOCATION }}
@@ -153,17 +150,6 @@ jobs:
             curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
           fi
           az --version
-
-      - name: Setup Azure Developer CLI (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
-          azd version
-
-      - name: Setup Azure Developer CLI (Windows)
-        if: runner.os == 'Windows'
-        uses: Azure/setup-azd@v2
 
       - name: Login to Azure
         shell: bash
@@ -358,276 +344,50 @@ jobs:
             fi
           fi
 
-      - name: Login to AZD
-        id: login-azure
-        shell: bash
-        run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+  deploy-linux:
+    name: Deploy on Linux
+    needs: azure-setup
+    if: inputs.runner_os == 'ubuntu-latest' && always() && needs.azure-setup.result == 'success'
+    uses: ./.github/workflows/job-deploy-linux.yml
+    with:
+      ENV_NAME: ${{ needs.azure-setup.outputs.ENV_NAME }}
+      AZURE_ENV_OPENAI_LOCATION: ${{ needs.azure-setup.outputs.AZURE_ENV_OPENAI_LOCATION }}
+      AZURE_LOCATION: ${{ needs.azure-setup.outputs.AZURE_LOCATION }}
+      RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
+      IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
+      BUILD_DOCKER_IMAGE: ${{ github.event.inputs.build_docker_image || 'false' }}
+      EXP: ${{ github.event.inputs.EXP || 'false' }}
+      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
+      AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ACR_TEST_LOGIN_SERVER: ${{ secrets.ACR_TEST_LOGIN_SERVER }}
+      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
+      AZURE_ENV_FOUNDRY_PROJECT_ID: ${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}
 
-      - name: Deploy using azd up and extract values (Linux)
-        id: get_output_linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -e
-          echo "Starting azd deployment..."
-          echo "WAF Enabled: ${{ env.WAF_ENABLED }}"
-          echo "EXP: ${{ env.EXP }}"
-          echo "Using Docker Image Tag: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-          
-          # Install azd (Azure Developer CLI)
-          curl -fsSL https://aka.ms/install-azd.sh | bash
-
-          # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
-          current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.%7NZ")
-
-          echo "Creating environment..."
-          azd env new $ENV_NAME --no-prompt
-          echo "Environment created: $ENV_NAME"
-
-          echo "Setting default subscription..."
-          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        
-          # Set additional parameters
-          azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="$AZURE_ENV_OPENAI_LOCATION"
-          azd env set AZURE_LOCATION="$AZURE_LOCATION"
-          azd env set AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
-          azd env set AZURE_ENV_CONTAINER_IMAGE_TAG="${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-          
-          if [[ "${{ env.BUILD_DOCKER_IMAGE }}" == "true" ]]; then
-            ACR_NAME=$(echo "${{ secrets.ACR_TEST_LOGIN_SERVER }}")
-            azd env set AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT="$ACR_NAME"
-            echo "Set ACR name to: $ACR_NAME"
-          else
-            echo "Skipping ACR name configuration (using existing image)"
-          fi
-
-          if [[ "${{ env.EXP }}" == "true" ]]; then
-            echo "✅ EXP ENABLED - Setting EXP parameters..."
-            
-            if [[ -n "${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" ]]; then
-              EXP_LOG_ANALYTICS_ID="${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
-            else
-              EXP_LOG_ANALYTICS_ID="${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
-            fi
-            
-            if [[ -n "${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" ]]; then
-              EXP_AI_PROJECT_ID="${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
-            else
-              EXP_AI_PROJECT_ID="${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}"
-            fi
-            
-            echo "AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: $EXP_LOG_ANALYTICS_ID"
-            echo "AZURE_ENV_FOUNDRY_PROJECT_ID: $EXP_AI_PROJECT_ID"
-            azd env set AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID="$EXP_LOG_ANALYTICS_ID"
-            azd env set AZURE_ENV_FOUNDRY_PROJECT_ID="$EXP_AI_PROJECT_ID"
-          else
-            echo "❌ EXP DISABLED - Skipping EXP parameters"
-          fi
-
-          azd up --no-prompt
-          
-          echo "✅ Deployment succeeded."
-          echo "$DEPLOY_OUTPUT"
-
-          echo "Extracting deployment outputs..."
-          DEPLOY_OUTPUT=$(azd env get-values --output json)
-          echo "Deployment output: $DEPLOY_OUTPUT"
-          
-          if [[ -z "$DEPLOY_OUTPUT" ]]; then
-            echo "Error: Deployment output is empty. Please check the deployment logs."
-            exit 1
-          fi
-
-          export CONTAINER_API_APPURL="https://$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_FQDN // empty')"
-          echo "CONTAINER_API_APPURL=$CONTAINER_API_APPURL" >> $GITHUB_ENV
-
-          export CONTAINER_API_APPNAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_API_APP_NAME // empty')
-          echo "CONTAINER_API_APPNAME=$CONTAINER_API_APPNAME" >> $GITHUB_ENV
-
-          export CONTAINER_WEB_APPURL="https://$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_WEB_APP_FQDN // empty')"
-          echo "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" >> $GITHUB_ENV
-          echo "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" >> $GITHUB_OUTPUT
-
-          export CONTAINER_WEB_APPNAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.CONTAINER_WEB_APP_NAME // empty')
-          echo "CONTAINER_WEB_APPNAME=$CONTAINER_WEB_APPNAME" >> $GITHUB_ENV
-
-      - name: Deploy using azd up and extract values (Windows)
-        id: get_output_windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          Write-Host "Starting azd deployment..."
-          Write-Host "WAF Enabled: ${{ env.WAF_ENABLED }}"
-          Write-Host "EXP: ${{ env.EXP }}"
-          Write-Host "Using Docker Image Tag: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-
-          Write-Host "Creating environment..."
-          azd env new $env:ENV_NAME --no-prompt
-          Write-Host "Environment created: $env:ENV_NAME"
-
-          Write-Host "Setting default subscription..."
-          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        
-          # Set additional parameters
-          azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          azd env set AZURE_ENV_AI_DEPLOYMENTS_LOCATION="$env:AZURE_ENV_OPENAI_LOCATION"
-          azd env set AZURE_LOCATION="$env:AZURE_LOCATION"
-          azd env set AZURE_RESOURCE_GROUP="$env:RESOURCE_GROUP_NAME"
-          azd env set AZURE_ENV_CONTAINER_IMAGE_TAG="${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-          # Set ACR name only when building Docker image
-          if ("${{ env.BUILD_DOCKER_IMAGE }}" -eq "true") {
-            # Extract ACR name from login server and set as environment variable
-            $ACR_NAME = "${{ secrets.ACR_TEST_LOGIN_SERVER }}"
-            azd env set AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT="$ACR_NAME"
-            Write-Host "Set ACR name to: $ACR_NAME"
-          } else {
-            Write-Host "Skipping ACR name configuration (using existing image)"
-          }
-
-          if ("${{ env.EXP }}" -eq "true") {
-            Write-Host "✅ EXP ENABLED - Setting EXP parameters..."
-            
-            # Set EXP variables dynamically
-            if ("${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" -ne "") {
-              $EXP_LOG_ANALYTICS_ID = "${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
-            } else {
-              $EXP_LOG_ANALYTICS_ID = "${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
-            }
-            
-            if ("${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" -ne "") {
-              $EXP_AI_PROJECT_ID = "${{ github.event.inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
-            } else {
-              $EXP_AI_PROJECT_ID = "${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}"
-            }
-            
-            Write-Host "AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: $EXP_LOG_ANALYTICS_ID"
-            Write-Host "AZURE_ENV_FOUNDRY_PROJECT_ID: $EXP_AI_PROJECT_ID"
-            azd env set AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID="$EXP_LOG_ANALYTICS_ID"
-            azd env set AZURE_ENV_FOUNDRY_PROJECT_ID="$EXP_AI_PROJECT_ID"
-          } else {
-            Write-Host "❌ EXP DISABLED - Skipping EXP parameters"
-          }
-
-          # Deploy using azd up
-          azd up --no-prompt
-          
-          Write-Host "✅ Deployment succeeded."
-
-          # Get deployment outputs using azd
-          Write-Host "Extracting deployment outputs..."
-          $DEPLOY_OUTPUT = azd env get-values --output json | ConvertFrom-Json
-          Write-Host "Deployment output: $($DEPLOY_OUTPUT | ConvertTo-Json -Depth 10)"
-          
-          if (-not $DEPLOY_OUTPUT) {
-            Write-Host "Error: Deployment output is empty. Please check the deployment logs."
-            exit 1
-          }
-
-          # Export variables only after successful deploy
-          $CONTAINER_API_APPURL = "https://$($DEPLOY_OUTPUT.CONTAINER_API_APP_FQDN)"
-          "CONTAINER_API_APPURL=$CONTAINER_API_APPURL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          $CONTAINER_API_APPNAME = $DEPLOY_OUTPUT.CONTAINER_API_APP_NAME
-          "CONTAINER_API_APPNAME=$CONTAINER_API_APPNAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          $CONTAINER_WEB_APPURL = "https://$($DEPLOY_OUTPUT.CONTAINER_WEB_APP_FQDN)"
-          "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "CONTAINER_WEB_APPURL=$CONTAINER_WEB_APPURL" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-          $CONTAINER_WEB_APPNAME = $DEPLOY_OUTPUT.CONTAINER_WEB_APP_NAME
-          "CONTAINER_WEB_APPNAME=$CONTAINER_WEB_APPNAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Register schemas (Linux)
-        id: register_linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          echo "Registering schemas..."
-          sleep 40
-
-          cd src/ContentProcessorAPI/samples/schemas
-          chmod +x ./register_schema.sh
-          ./register_schema.sh ${{ env.CONTAINER_API_APPURL }}/schemavault/ schema_info_sh.json
-
-      - name: Register schemas (Windows)
-        id: register_windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "Registering schemas..."
-          Start-Sleep -Seconds 40  # Wait for the API to be ready
-
-          Set-Location src/ContentProcessorAPI/samples/schemas
-          & .\register_schema.ps1 "${{ env.CONTAINER_API_APPURL }}/schemavault/" "schema_info_sh.json"
-
-      - name: Upload sample invoice and claim data
-        if : runner.os == 'Linux'
-        shell: bash
-        run: |
-          echo "Uploading sample data..."
-          cd src/ContentProcessorAPI/samples
-          chmod +x ./upload_files.sh
-          ./upload_files.sh ${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit ./invoices '${{ steps.register_linux.outputs.invoice_schema_id }}'
-          ./upload_files.sh ${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit ./propertyclaims '${{ steps.register_linux.outputs.propertylossdamageclaimform_schema_id }}'
-
-      - name: Upload sample invoice and claim data
-        if : runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "Uploading sample data..."
-          Set-Location src/ContentProcessorAPI/samples
-          & .\upload_files.ps1 "${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit" ".\invoices" "${{ steps.register_windows.outputs.invoice_schema_id }}"
-          & .\upload_files.ps1 "${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit" ".\propertyclaims" "${{ steps.register_windows.outputs.propertylossdamageclaimform_schema_id }}"
-
-      - name: Disable Auth in Web App
-        shell: bash
-        run: |
-          az containerapp update --name ${{ env.CONTAINER_WEB_APPNAME }} \
-            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
-            --set-env-vars APP_AUTH_ENABLED=false
-
-      - name: Disable Auth in API App
-        shell: bash
-        run: |
-          sleep 30
-          az containerapp update --name ${{ env.CONTAINER_API_APPNAME }} \
-            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
-            --set-env-vars APP_AUTH_ENABLED=false
-
-      - name: Logout from Azure
-        if: always()
-        shell: bash
-        run: |
-          az logout
-          echo "Logged out from Azure."
-
-      - name: Generate Deploy Job Summary
-        if: always()
-        shell: bash
-        run: |
-          echo "## 🚀 Deploy Job Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resource Group** | \`${{ steps.check_create_rg.outputs.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Configuration** | ${{ env.WAF_ENABLED == 'true' && 'WAF' || 'Non-WAF' }}+${{ env.EXP == 'true' && 'EXP' || 'Non-EXP' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Azure Region (Infrastructure)** | \`${{ steps.set_region.outputs.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Azure OpenAI Region** | \`${{ steps.set_region.outputs.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image Tag** | \`${{ steps.determine_image_tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "### ✅ Deployment Details" >> $GITHUB_STEP_SUMMARY
-            echo "- **Container Web App URL**: [${{ env.CONTAINER_WEB_APPURL }}](${{ env.CONTAINER_WEB_APPURL }})" >> $GITHUB_STEP_SUMMARY
-            echo "- **Container API App URL**: [${{ env.CONTAINER_API_APPURL }}](${{ env.CONTAINER_API_APPURL }})" >> $GITHUB_STEP_SUMMARY
-            echo "- Successfully deployed to Azure with all resources configured" >> $GITHUB_STEP_SUMMARY
-            echo "- Schemas registered and sample data uploaded successfully" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Deployment process encountered an error" >> $GITHUB_STEP_SUMMARY
-            echo "- Check the deploy job for detailed error information" >> $GITHUB_STEP_SUMMARY
-          fi
+  deploy-windows:
+    name: Deploy on Windows
+    needs: azure-setup
+    if: inputs.runner_os == 'windows-latest' && always() && needs.azure-setup.result == 'success'
+    uses: ./.github/workflows/job-deploy-windows.yml
+    with:
+      ENV_NAME: ${{ needs.azure-setup.outputs.ENV_NAME }}
+      AZURE_ENV_OPENAI_LOCATION: ${{ needs.azure-setup.outputs.AZURE_ENV_OPENAI_LOCATION }}
+      AZURE_LOCATION: ${{ needs.azure-setup.outputs.AZURE_LOCATION }}
+      RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
+      IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
+      BUILD_DOCKER_IMAGE: ${{ github.event.inputs.build_docker_image || 'false' }}
+      EXP: ${{ github.event.inputs.EXP || 'false' }}
+      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
+      AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ACR_TEST_LOGIN_SERVER: ${{ secrets.ACR_TEST_LOGIN_SERVER }}
+      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
+      AZURE_ENV_FOUNDRY_PROJECT_ID: ${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}
