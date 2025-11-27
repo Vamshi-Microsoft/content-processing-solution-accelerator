@@ -151,17 +151,6 @@ jobs:
           fi
           az --version
 
-      - name: Setup Azure Developer CLI (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
-          azd version
-
-      - name: Setup Azure Developer CLI (Windows)
-        if: runner.os == 'Windows'
-        uses: Azure/setup-azd@v2
-
       - name: Login to Azure
         shell: bash
         run: |
@@ -355,14 +344,6 @@ jobs:
             fi
           fi
 
-      - name: Set Environment Variables for Child Workflows
-        id: set_env_vars
-        shell: bash
-        run: |
-          echo "CONTAINER_API_APPURL=" >> $GITHUB_ENV
-          echo "CONTAINER_API_APPNAME=" >> $GITHUB_ENV
-          echo "CONTAINER_WEB_APPNAME=" >> $GITHUB_ENV
-
   deploy-linux:
     name: Deploy on Linux
     needs: azure-setup
@@ -378,9 +359,6 @@ jobs:
       EXP: ${{ github.event.inputs.EXP || 'false' }}
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-      CONTAINER_API_APPURL: ""
-      CONTAINER_API_APPNAME: ""
-      CONTAINER_WEB_APPNAME: ""
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -405,9 +383,6 @@ jobs:
       EXP: ${{ github.event.inputs.EXP || 'false' }}
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-      CONTAINER_API_APPURL: ""
-      CONTAINER_API_APPNAME: ""
-      CONTAINER_WEB_APPNAME: ""
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -416,42 +391,3 @@ jobs:
       ACR_TEST_LOGIN_SERVER: ${{ secrets.ACR_TEST_LOGIN_SERVER }}
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
       AZURE_ENV_FOUNDRY_PROJECT_ID: ${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}
-
-  summary:
-    name: Generate Summary
-    needs: [azure-setup, deploy-linux, deploy-windows]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Logout from Azure
-        shell: bash
-        run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az logout
-          echo "Logged out from Azure."
-
-      - name: Generate Deploy Job Summary
-        shell: bash
-        run: |
-          echo "## 🚀 Deploy Job Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Job Status** | ${{ needs.azure-setup.result == 'success' && (needs.deploy-linux.result == 'success' || needs.deploy-windows.result == 'success') && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resource Group** | \`${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Configuration** | ${{ env.WAF_ENABLED == 'true' && 'WAF' || 'Non-WAF' }}+${{ env.EXP == 'true' && 'EXP' || 'Non-EXP' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Azure Region (Infrastructure)** | \`${{ needs.azure-setup.outputs.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Azure OpenAI Region** | \`${{ needs.azure-setup.outputs.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image Tag** | \`${{ needs.azure-setup.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ needs.azure-setup.result }}" == "success" ]] && ([[ "${{ needs.deploy-linux.result }}" == "success" ]] || [[ "${{ needs.deploy-windows.result }}" == "success" ]]); then
-            echo "### ✅ Deployment Details" >> $GITHUB_STEP_SUMMARY
-            CONTAINER_WEB_APPURL="${{ needs.deploy-linux.outputs.CONTAINER_WEB_APPURL || needs.deploy-windows.outputs.CONTAINER_WEB_APPURL }}"
-            echo "- **Container Web App URL**: [$CONTAINER_WEB_APPURL]($CONTAINER_WEB_APPURL)" >> $GITHUB_STEP_SUMMARY
-            echo "- Successfully deployed to Azure with all resources configured" >> $GITHUB_STEP_SUMMARY
-            echo "- Schemas registered and sample data uploaded successfully" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Deployment process encountered an error" >> $GITHUB_STEP_SUMMARY
-            echo "- Check the azure-setup and deploy jobs for detailed error information" >> $GITHUB_STEP_SUMMARY
-          fi

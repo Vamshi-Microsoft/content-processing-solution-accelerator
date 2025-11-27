@@ -30,15 +30,6 @@ on:
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID:
         required: false
         type: string
-      CONTAINER_API_APPURL:
-        required: true
-        type: string
-      CONTAINER_API_APPNAME:
-        required: true
-        type: string
-      CONTAINER_WEB_APPNAME:
-        required: true
-        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -76,11 +67,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Login to Azure
+      - name: Setup Azure Developer CLI (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
+          azd version
+      - name: Login to AZD
+        id: login-azure
         shell: bash
         run: |
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
 
       - name: Deploy using azd up and extract values (Linux)
         id: get_output_linux
@@ -178,7 +176,7 @@ jobs:
 
           cd src/ContentProcessorAPI/samples/schemas
           chmod +x ./register_schema.sh
-          ./register_schema.sh ${{ inputs.CONTAINER_API_APPURL }}/schemavault/ schema_info_sh.json
+          ./register_schema.sh ${{ env.CONTAINER_API_APPURL }}/schemavault/ schema_info_sh.json
 
       - name: Upload sample invoice and claim data (Linux)
         shell: bash
@@ -186,13 +184,13 @@ jobs:
           echo "Uploading sample data..."
           cd src/ContentProcessorAPI/samples
           chmod +x ./upload_files.sh
-          ./upload_files.sh ${{ inputs.CONTAINER_API_APPURL }}/contentprocessor/submit ./invoices '${{ steps.register_linux.outputs.invoice_schema_id }}'
-          ./upload_files.sh ${{ inputs.CONTAINER_API_APPURL }}/contentprocessor/submit ./propertyclaims '${{ steps.register_linux.outputs.propertylossdamageclaimform_schema_id }}'
+          ./upload_files.sh ${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit ./invoices '${{ steps.register_linux.outputs.invoice_schema_id }}'
+          ./upload_files.sh ${{ env.CONTAINER_API_APPURL }}/contentprocessor/submit ./propertyclaims '${{ steps.register_linux.outputs.propertylossdamageclaimform_schema_id }}'
 
       - name: Disable Auth in Web App
         shell: bash
         run: |
-          az containerapp update --name ${{ inputs.CONTAINER_WEB_APPNAME }} \
+          az containerapp update --name ${{ env.CONTAINER_WEB_APPNAME }} \
             --resource-group ${{ inputs.RESOURCE_GROUP_NAME }} \
             --set-env-vars APP_AUTH_ENABLED=false
 
@@ -200,6 +198,40 @@ jobs:
         shell: bash
         run: |
           sleep 30
-          az containerapp update --name ${{ inputs.CONTAINER_API_APPNAME }} \
+          az containerapp update --name ${{ env.CONTAINER_API_APPNAME }} \
             --resource-group ${{ inputs.RESOURCE_GROUP_NAME }} \
             --set-env-vars APP_AUTH_ENABLED=false
+
+      - name: Generate Deployment Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## 🚀 Deploy Job Summary (Linux)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Group** | \`${{ inputs.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Azure Region (Infrastructure)** | \`${{ inputs.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Azure OpenAI Region** | \`${{ inputs.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Image Tag** | \`${{ inputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment Name** | \`${{ inputs.ENV_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "### ✅ Deployment Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Container Web App URL**: [${{ env.CONTAINER_WEB_APPURL }}](${{ env.CONTAINER_WEB_APPURL }})" >> $GITHUB_STEP_SUMMARY
+            echo "- **Container API App URL**: [${{ env.CONTAINER_API_APPURL }}](${{ env.CONTAINER_API_APPURL }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Successfully deployed to Azure with all resources configured" >> $GITHUB_STEP_SUMMARY
+            echo "- Schemas registered and sample data uploaded successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Deployment process encountered an error" >> $GITHUB_STEP_SUMMARY
+            echo "- Check the deployment steps above for detailed error information" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Logout from Azure
+        if: always()
+        shell: bash
+        run: |
+          az logout || true
+          echo "Logged out from Azure."

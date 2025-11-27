@@ -30,15 +30,6 @@ on:
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID:
         required: false
         type: string
-      CONTAINER_API_APPURL:
-        required: true
-        type: string
-      CONTAINER_API_APPNAME:
-        required: true
-        type: string
-      CONTAINER_WEB_APPNAME:
-        required: true
-        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -79,11 +70,13 @@ jobs:
       - name: Setup Azure Developer CLI (Windows)
         uses: Azure/setup-azd@v2
 
-      - name: Login to Azure
+      - name: Login to AZD
+        id: login-azure
         shell: bash
         run: |
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+
 
       - name: Deploy using azd up and extract values (Windows)
         id: get_output_windows
@@ -192,7 +185,7 @@ jobs:
       - name: Disable Auth in Web App
         shell: bash
         run: |
-          az containerapp update --name ${{ inputs.CONTAINER_WEB_APPNAME }} \
+          az containerapp update --name ${{ env.CONTAINER_WEB_APPNAME }} \
             --resource-group ${{ inputs.RESOURCE_GROUP_NAME }} \
             --set-env-vars APP_AUTH_ENABLED=false
 
@@ -200,6 +193,40 @@ jobs:
         shell: bash
         run: |
           sleep 30
-          az containerapp update --name ${{ inputs.CONTAINER_API_APPNAME }} \
+          az containerapp update --name ${{ env.CONTAINER_API_APPNAME }} \
             --resource-group ${{ inputs.RESOURCE_GROUP_NAME }} \
             --set-env-vars APP_AUTH_ENABLED=false
+
+      - name: Generate Deployment Summary
+        if: always()
+        shell: pwsh
+        run: |
+          "## 🚀 Deploy Job Summary (Windows)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| Field | Value |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "|-------|--------|" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| **Resource Group** | \`${{ inputs.RESOURCE_GROUP_NAME }}\` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| **Azure Region (Infrastructure)** | \`${{ inputs.AZURE_LOCATION }}\` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| **Azure OpenAI Region** | \`${{ inputs.AZURE_ENV_OPENAI_LOCATION }}\` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| **Docker Image Tag** | \`${{ inputs.IMAGE_TAG }}\` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| **Environment Name** | \`${{ inputs.ENV_NAME }}\` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          if ("${{ job.status }}" -eq "success") {
+            "### ✅ Deployment Details" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "- **Container Web App URL**: [${{ env.CONTAINER_WEB_APPURL }}](${{ env.CONTAINER_WEB_APPURL }})" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "- **Container API App URL**: [${{ env.CONTAINER_API_APPURL }}](${{ env.CONTAINER_API_APPURL }})" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "- Successfully deployed to Azure with all resources configured" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "- Schemas registered and sample data uploaded successfully" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          } else {
+            "### ❌ Deployment Failed" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "- Deployment process encountered an error" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "- Check the deployment steps above for detailed error information" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }
+
+      - name: Logout from Azure
+        if: always()
+        shell: bash
+        run: |
+          az logout || true
+          echo "Logged out from Azure."
