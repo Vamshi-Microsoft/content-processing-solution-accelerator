@@ -94,24 +94,7 @@ env:
   AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
 
 jobs:
-  display-configuration:
-    uses: ./.github/workflows/job-display-configuration.yml
-    with:
-      trigger_type: ${{ inputs.trigger_type }}
-      runner_os: ${{ inputs.runner_os }}
-      waf_enabled: ${{ inputs.waf_enabled }}
-      EXP: ${{ inputs.EXP }}
-      build_docker_image: ${{ inputs.build_docker_image }}
-      cleanup_resources: ${{ inputs.cleanup_resources }}
-      run_e2e_tests: ${{ inputs.run_e2e_tests }}
-      azure_location: ${{ inputs.azure_location }}
-      resource_group_name: ${{ inputs.resource_group_name }}
-      existing_webapp_url: ${{ inputs.existing_webapp_url }}
-      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
-      AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-
   docker-build:
-    needs: display-configuration
     uses: ./.github/workflows/job-docker-build.yml
     with:
       trigger_type: ${{ inputs.trigger_type }}
@@ -123,7 +106,7 @@ jobs:
 
   deploy:
     if: always() && (inputs.trigger_type != 'workflow_dispatch' || inputs.existing_webapp_url == '' || inputs.existing_webapp_url == null)
-    needs: [display-configuration, docker-build]
+    needs: docker-build
     uses: ./.github/workflows/job-deploy.yml
     with:
       trigger_type: ${{ inputs.trigger_type }}
