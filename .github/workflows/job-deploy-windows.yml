@@ -24,6 +24,10 @@ on:
       EXP:
         required: true
         type: string
+      WAF_ENABLED:
+        required: false
+        type: string
+        default: 'false'
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID:
         required: false
         type: string
@@ -66,6 +70,16 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Configure Parameters Based on WAF Setting
+        shell: bash
+        run: |
+          if [[ "${{ inputs.WAF_ENABLED }}" == "true" ]]; then
+            cp infra/main.waf.parameters.json infra/main.parameters.json
+            echo "✅ Successfully copied WAF parameters to main parameters file"
+          else
+            echo "🔧 Configuring Non-WAF deployment - using default main.parameters.json..."
+          fi
 
       - name: Setup Azure Developer CLI (Windows)
         uses: Azure/setup-azd@v2
