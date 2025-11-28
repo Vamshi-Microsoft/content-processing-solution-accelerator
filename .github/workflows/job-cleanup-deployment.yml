@@ -1,4 +1,4 @@
-name: Cleanup Deployment Job
+name: Cleanup Deployment Job v2
 
 on:
   workflow_call:
@@ -41,15 +41,6 @@ on:
         description: 'Docker Image Tag'
         required: true
         type: string
-    secrets:
-      AZURE_CLIENT_ID:
-        required: true
-      AZURE_CLIENT_SECRET:
-        required: true
-      AZURE_TENANT_ID:
-        required: true
-      AZURE_SUBSCRIPTION_ID:
-        required: true
 
 jobs:
   cleanup-deployment:
@@ -109,7 +100,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resouce Group deletion Status** | ${{ steps.delete_rg.outcome == 'success' && '✅ Initiated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Group deletion Status** | ${{ steps.delete_rg.outcome == 'success' && '✅ Initiated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Resource Group** | \`${{ env.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ steps.delete_rg.outcome }}" == "success" ]]; then

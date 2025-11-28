@@ -1,4 +1,4 @@
-name: Docker Build Job
+name: Docker Build Job v2
 
 on:
   workflow_call:
@@ -12,13 +12,6 @@ on:
         required: false
         default: false
         type: boolean
-    secrets:
-      ACR_TEST_LOGIN_SERVER:
-        required: true
-      ACR_TEST_USERNAME:
-        required: true
-      ACR_TEST_PASSWORD:
-        required: true
     outputs:
       IMAGE_TAG:
         description: "Generated Docker Image Tag"

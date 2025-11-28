@@ -1,4 +1,4 @@
-name: Send Notification Job
+name: Send Notification Job v2
 
 on:
   workflow_call:
@@ -60,9 +60,6 @@ on:
         required: false
         default: ''
         type: string
-    secrets:
-      EMAILNOTIFICATION_LOGICAPP_URL_TA:
-        required: false
 
 env:
   GPT_MIN_CAPACITY: 100

@@ -1,4 +1,4 @@
-name: Deploy Job
+name: Deploy Job v2
 
 on:
   workflow_call:
@@ -66,28 +66,7 @@ on:
         required: false
         default: ''
         type: string
-    secrets:
-      AZURE_CLIENT_ID:
-        required: true
-      AZURE_CLIENT_SECRET:
-        required: true
-      AZURE_TENANT_ID:
-        required: true
-      AZURE_SUBSCRIPTION_ID:
-        required: true
-      ACR_TEST_LOGIN_SERVER:
-        required: true
-      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID:
-        required: false
-      AZURE_ENV_FOUNDRY_PROJECT_ID:
-        required: false
     outputs:
-      invoice_schema_id:
-        description: "Invoice Schema ID"
-        value: ${{ jobs.deploy-linux.outputs.invoice_schema_id || jobs.deploy-windows.outputs.invoice_schema_id }}
-      propertydamageclaimform_schema_id:
-        description: "Property Damage Claim Form Schema ID"
-        value: ${{ jobs.deploy-linux.outputs.propertydamageclaimform_schema_id || jobs.deploy-windows.outputs.propertydamageclaimform_schema_id }}
       RESOURCE_GROUP_NAME:
         description: "Resource Group Name"
         value: ${{ jobs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
@@ -289,9 +268,9 @@ jobs:
               IMAGE_TAG="demo"
               echo "Using demo branch - image tag: demo"
             elif [[ "$BRANCH_NAME" == "hotfix" ]]; then
-              BASE_TAG="hotfix"
+              IMAGE_TAG="hotfix"
             elif [[ "$BRANCH_NAME" == "dependabotchanges" ]]; then
-              BASE_TAG="dependabotchanges"
+              IMAGE_TAG="dependabotchanges"
             else
               IMAGE_TAG="latest"
               echo "Using default for branch '$BRANCH_NAME' - image tag: latest"
@@ -360,19 +339,12 @@ jobs:
       AZURE_LOCATION: ${{ needs.azure-setup.outputs.AZURE_LOCATION }}
       RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
-      BUILD_DOCKER_IMAGE: ${{ github.event.inputs.build_docker_image || 'false' }}
-      EXP: ${{ github.event.inputs.EXP || 'false' }}
+      BUILD_DOCKER_IMAGE: ${{ inputs.build_docker_image || 'false' }}
+      EXP: ${{ inputs.EXP || 'false' }}
       WAF_ENABLED: ${{ inputs.waf_enabled == true && 'true' || 'false' }}
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ACR_TEST_LOGIN_SERVER: ${{ secrets.ACR_TEST_LOGIN_SERVER }}
-      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
-      AZURE_ENV_FOUNDRY_PROJECT_ID: ${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}
+    secrets: inherit
 
   deploy-windows:
     name: Deploy on Windows
@@ -385,16 +357,9 @@ jobs:
       AZURE_LOCATION: ${{ needs.azure-setup.outputs.AZURE_LOCATION }}
       RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
-      BUILD_DOCKER_IMAGE: ${{ github.event.inputs.build_docker_image || 'false' }}
-      EXP: ${{ github.event.inputs.EXP || 'false' }}
+      BUILD_DOCKER_IMAGE: ${{ inputs.build_docker_image || 'false' }}
+      EXP: ${{ inputs.EXP || 'false' }}
       WAF_ENABLED: ${{ inputs.waf_enabled == true && 'true' || 'false' }}
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ACR_TEST_LOGIN_SERVER: ${{ secrets.ACR_TEST_LOGIN_SERVER }}
-      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
-      AZURE_ENV_FOUNDRY_PROJECT_ID: ${{ secrets.AZURE_ENV_FOUNDRY_PROJECT_ID }}
+    secrets: inherit
