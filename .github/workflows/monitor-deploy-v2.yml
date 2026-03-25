@@ -5,24 +5,10 @@ on:
     # Runs every day at 8:00 AM UTC
     - cron: '0 8 * * *'
   workflow_dispatch:
-    inputs:
-      lookback_hours:
-        description: 'Hours to look back for workflow runs'
-        required: false
-        default: '24'
-        type: string
-      send_email:
-        description: 'Send email notification'
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
   actions: read
-
-env:
-  LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '24' }}
 
 jobs:
   monitor:
@@ -50,8 +36,6 @@ jobs:
               { owner: 'microsoft', repo: 'agentic-applications-for-unified-data-foundation-solution-accelerator' }
             ];
 
-            const lookbackHours = parseInt(process.env.LOOKBACK_HOURS) || 24;
-            const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
             const results = [];
 
             for (const { owner, repo } of repos) {
@@ -157,7 +141,6 @@ jobs:
           script: |
             const fs = require('fs');
             const results = JSON.parse(fs.readFileSync('pipeline-results.json', 'utf8'));
-            const lookbackHours = parseInt(process.env.LOOKBACK_HOURS) || 24;
 
             const successful = results.filter(r => r.conclusion === 'success').length;
             const failed = results.filter(r => r.conclusion === 'failure').length;
@@ -190,8 +173,7 @@ jobs:
 
             // Header
             summary += `# 📊 Deploy-v2 Pipeline Monitor\n\n`;
-            summary += `> **Report generated:** ${new Date().toUTCString()}  \n`;
-            summary += `> **Lookback window:** ${lookbackHours} hours  \n\n`;
+            summary += `> **Report generated:** ${new Date().toUTCString()}  \n\n`;
 
             // Stats cards
             summary += `## Summary\n\n`;
@@ -276,7 +258,6 @@ jobs:
           script: |
             const fs = require('fs');
             const results = JSON.parse(fs.readFileSync('pipeline-results.json', 'utf8'));
-            const lookbackHours = parseInt(process.env.LOOKBACK_HOURS) || 24;
 
             const successful = results.filter(r => r.conclusion === 'success').length;
             const failed = results.filter(r => r.conclusion === 'failure').length;
@@ -327,7 +308,7 @@ jobs:
                             📊 Deploy-v2 Pipeline Monitor
                           </h1>
                           <p style="color:rgba(255,255,255,0.85); margin:8px 0 0; font-size:14px;">
-                            ${new Date().toUTCString()} · Last ${lookbackHours}h
+                            ${new Date().toUTCString()}
                           </p>
                         </td>
                       </tr>
@@ -519,7 +500,6 @@ jobs:
           retention-days: 30
 
       - name: Send email notification via Logic App
-        if: ${{ github.event.inputs.send_email != 'false' }}
         shell: bash
         env:
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
