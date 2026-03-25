@@ -74,34 +74,13 @@ jobs:
               };
 
               try {
-                // Find the deploy-v2 workflow file
-                const { data: workflows } = await github.rest.actions.listRepoWorkflows({
-                  owner,
-                  repo,
-                  per_page: 100
-                });
-
-                const deployV2 = workflows.workflows.find(w =>
-                  w.name.toLowerCase().includes('deploy') &&
-                  (w.name.toLowerCase().includes('v2') || w.path.toLowerCase().includes('deploy-v2'))
-                );
-
-                if (!deployV2) {
-                  entry.error = 'deploy-v2 workflow not found';
-                  results.push(entry);
-                  continue;
-                }
-
-                entry.workflowFound = true;
-
-                // Get the latest runs for this workflow
-                // API returns runs sorted by created_at descending (newest first),
-                // matching what the GitHub Actions UI shows
+                // Look up deploy-v2.yml directly by filename — exactly like visiting
+                // https://github.com/{owner}/{repo}/actions/workflows/deploy-v2.yml
                 const { data: runs } = await github.rest.actions.listWorkflowRuns({
                   owner,
                   repo,
-                  workflow_id: deployV2.id,
-                  per_page: 5
+                  workflow_id: 'deploy-v2.yml',
+                  per_page: 1
                 });
 
                 if (runs.workflow_runs.length === 0) {
@@ -111,14 +90,10 @@ jobs:
                   continue;
                 }
 
-                // Sort by run_number descending to guarantee we pick the latest run
-                const sortedRuns = [...runs.workflow_runs].sort((a, b) => b.run_number - a.run_number);
-                const latestRun = sortedRuns[0];
+                entry.workflowFound = true;
 
-                // Check if latest run falls within the lookback window (for staleness warning only)
-                if (new Date(latestRun.created_at) < new Date(since)) {
-                  entry.error = `No runs in the last ${lookbackHours}h (latest run: ${latestRun.created_at})`;
-                }
+                // The API returns the latest run first — this is the top entry in the UI
+                const latestRun = runs.workflow_runs[0];
 
                 entry.status = latestRun.status;
                 entry.conclusion = latestRun.conclusion;
