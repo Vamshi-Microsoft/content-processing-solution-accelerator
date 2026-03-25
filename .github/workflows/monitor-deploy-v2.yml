@@ -94,12 +94,12 @@ jobs:
 
                 entry.workflowFound = true;
 
-                // Get the latest runs for this workflow (no server-side date filter to avoid API quirks)
+                // Get the latest runs for this workflow
                 const { data: runs } = await github.rest.actions.listWorkflowRuns({
                   owner,
                   repo,
                   workflow_id: deployV2.id,
-                  per_page: 10
+                  per_page: 20
                 });
 
                 if (runs.workflow_runs.length === 0) {
@@ -109,13 +109,18 @@ jobs:
                   continue;
                 }
 
-                // Filter runs within the lookback window client-side
-                const recentRuns = runs.workflow_runs.filter(r => new Date(r.created_at) >= new Date(since));
-                const latestRun = recentRuns.length > 0 ? recentRuns[0] : runs.workflow_runs[0];
+                // Sort by updated_at descending to get the truly latest run
+                // (handles re-runs where created_at stays the same but updated_at changes)
+                const sortedRuns = [...runs.workflow_runs].sort(
+                  (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+                );
 
-                if (recentRuns.length === 0) {
-                  // No runs in lookback window — still show the latest run info but mark as stale
-                  entry.error = `No runs in the last ${lookbackHours}h (latest run: ${latestRun.created_at})`;
+                const latestRun = sortedRuns[0];
+
+                // Check if latest run activity falls within the lookback window
+                const latestActivity = new Date(latestRun.updated_at);
+                if (latestActivity < new Date(since)) {
+                  entry.error = `No runs in the last ${lookbackHours}h (latest run: ${latestRun.created_at}, last updated: ${latestRun.updated_at})`;
                 }
 
                 entry.status = latestRun.status;
