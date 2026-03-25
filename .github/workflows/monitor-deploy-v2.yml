@@ -111,8 +111,9 @@ jobs:
                   continue;
                 }
 
-                // Always pick the first run — it's the most recently created (latest)
-                const latestRun = runs.workflow_runs[0];
+                // Sort by run_number descending to guarantee we pick the latest run
+                const sortedRuns = [...runs.workflow_runs].sort((a, b) => b.run_number - a.run_number);
+                const latestRun = sortedRuns[0];
 
                 // Check if latest run falls within the lookback window (for staleness warning only)
                 if (new Date(latestRun.created_at) < new Date(since)) {
