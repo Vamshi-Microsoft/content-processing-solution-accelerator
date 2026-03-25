@@ -67,7 +67,6 @@ jobs:
                 branch: null,
                 event: null,
                 startedAt: null,
-                duration: null,
                 failedJobs: [],
                 workflowFound: false,
                 error: null
@@ -102,13 +101,6 @@ jobs:
                 entry.branch = latestRun.head_branch;
                 entry.event = latestRun.event;
                 entry.startedAt = latestRun.created_at;
-
-                if (latestRun.updated_at && latestRun.created_at) {
-                  const dur = new Date(latestRun.updated_at) - new Date(latestRun.created_at);
-                  const mins = Math.floor(dur / 60000);
-                  const secs = Math.floor((dur % 60000) / 1000);
-                  entry.duration = `${mins}m ${secs}s`;
-                }
 
                 // If the run failed or has completed, get job details
                 if (latestRun.status === 'completed') {
@@ -225,16 +217,16 @@ jobs:
             const grouped = [...results].sort((a, b) => statusOrder(a) - statusOrder(b));
 
             summary += `## Pipeline Details\n\n`;
-            summary += `| Status | Repository | Conclusion | Branch | Trigger | Duration | Run |\n`;
-            summary += `|:------:|:-----------|:-----------|:-------|:--------|:---------|:----|\n`;
+            summary += `| Status | Repository | Conclusion | Branch | Trigger | Triggered At | Run |\n`;
+            summary += `|:------:|:-----------|:-----------|:-------|:--------|:-------------|:----|\n`;
 
             for (const r of grouped) {
               const repoLink = `[${r.repo}](${r.repoUrl}/actions/workflows/deploy-v2.yml)`;
               const runLink = r.runUrl ? `[View](${r.runUrl})` : '—';
               const branch = r.branch || '—';
               const trigger = r.event || '—';
-              const duration = r.duration || '—';
-              summary += `| ${statusIcon(r)} | ${repoLink} | ${conclusionBadge(r)} | \`${branch}\` | \`${trigger}\` | ${duration} | ${runLink} |\n`;
+              const triggeredAt = r.startedAt ? new Date(r.startedAt).toUTCString() : '—';
+              summary += `| ${statusIcon(r)} | ${repoLink} | ${conclusionBadge(r)} | \`${branch}\` | \`${trigger}\` | ${triggeredAt} | ${runLink} |\n`;
             }
 
             summary += '\n';
@@ -404,7 +396,7 @@ jobs:
                               <th style="padding:12px 16px; text-align:left; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Status</th>
                               <th style="padding:12px 16px; text-align:left; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Repository</th>
                               <th style="padding:12px 16px; text-align:left; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Branch</th>
-                              <th style="padding:12px 16px; text-align:left; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Duration</th>
+                              <th style="padding:12px 16px; text-align:left; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Triggered At</th>
                               <th style="padding:12px 16px; text-align:center; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Link</th>
                             </tr>`;
 
@@ -436,7 +428,7 @@ jobs:
                               <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; color:#475569; font-size:13px;">
                                 <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:12px;">${r.branch || '—'}</code>
                               </td>
-                              <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; color:#475569; font-size:13px;">${r.duration || '—'}</td>
+                              <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; color:#475569; font-size:13px;">${r.startedAt ? new Date(r.startedAt).toUTCString() : '—'}</td>
                               <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; text-align:center;">${link}</td>
                             </tr>`;
             });
