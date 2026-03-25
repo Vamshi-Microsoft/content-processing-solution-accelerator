@@ -221,11 +221,11 @@ jobs:
 
             for (const r of results) {
               const repoLink = `[${r.repo}](${r.repoUrl})`;
-              const runLink = r.runUrl ? `[View](${r.runUrl})` : '—';
+              const workflowLink = `[View](${r.repoUrl}/actions/workflows/deploy-v2.yml)`;
               const branch = r.branch || '—';
               const trigger = r.event || '—';
               const duration = r.duration || '—';
-              summary += `| ${statusIcon(r)} | ${repoLink} | ${conclusionBadge(r)} | \`${branch}\` | \`${trigger}\` | ${duration} | ${runLink} |\n`;
+              summary += `| ${statusIcon(r)} | ${repoLink} | ${conclusionBadge(r)} | \`${branch}\` | \`${trigger}\` | ${duration} | ${workflowLink} |\n`;
             }
 
             summary += '\n';
@@ -401,9 +401,7 @@ jobs:
 
             results.forEach((r, i) => {
               const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-              const link = r.runUrl
-                ? `<a href="${r.runUrl}" style="color:#3b82f6; text-decoration:none; font-weight:500;">View Run →</a>`
-                : '—';
+              const link = `<a href="${r.repoUrl}/actions/workflows/deploy-v2.yml" style="color:#3b82f6; text-decoration:none; font-weight:500;">View Run →</a>`;
               html += `
                             <tr style="background-color:${bgColor};">
                               <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9;">
