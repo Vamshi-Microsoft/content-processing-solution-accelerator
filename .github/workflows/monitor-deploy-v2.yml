@@ -214,12 +214,21 @@ jobs:
               summary += `> **🚨 ${failed} pipeline(s) require attention!**\n\n`;
             }
 
-            // Detailed table
+            // Detailed table — grouped by status
+            const statusOrder = (r) => {
+              if (r.conclusion === 'failure') return 0;
+              if (r.conclusion === 'cancelled') return 1;
+              if (r.status === 'in_progress' || r.status === 'queued') return 2;
+              if (r.conclusion === 'success') return 3;
+              return 4;
+            };
+            const grouped = [...results].sort((a, b) => statusOrder(a) - statusOrder(b));
+
             summary += `## Pipeline Details\n\n`;
             summary += `| Status | Repository | Conclusion | Branch | Trigger | Duration | Run |\n`;
             summary += `|:------:|:-----------|:-----------|:-------|:--------|:---------|:----|\n`;
 
-            for (const r of results) {
+            for (const r of grouped) {
               const repoLink = `[${r.repo}](${r.repoUrl}/actions/workflows/deploy-v2.yml)`;
               const runLink = r.runUrl ? `[View](${r.runUrl})` : '—';
               const branch = r.branch || '—';
@@ -399,7 +408,17 @@ jobs:
                               <th style="padding:12px 16px; text-align:center; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0;">Link</th>
                             </tr>`;
 
-            results.forEach((r, i) => {
+            // Group by status: failed first, then cancelled, in-progress, success, others
+            const statusOrder = (r) => {
+              if (r.conclusion === 'failure') return 0;
+              if (r.conclusion === 'cancelled') return 1;
+              if (r.status === 'in_progress' || r.status === 'queued') return 2;
+              if (r.conclusion === 'success') return 3;
+              return 4;
+            };
+            const grouped = [...results].sort((a, b) => statusOrder(a) - statusOrder(b));
+
+            grouped.forEach((r, i) => {
               const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
               const link = r.runUrl
                 ? `<a href="${r.runUrl}" style="color:#3b82f6; text-decoration:none; font-weight:500;">View Run \u2192</a>`
