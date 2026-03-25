@@ -220,12 +220,12 @@ jobs:
             summary += `|:------:|:-----------|:-----------|:-------|:--------|:---------|:----|\n`;
 
             for (const r of results) {
-              const repoLink = `[${r.repo}](${r.repoUrl})`;
-              const workflowLink = `[View](${r.repoUrl}/actions/workflows/deploy-v2.yml)`;
+              const repoLink = `[${r.repo}](${r.repoUrl}/actions/workflows/deploy-v2.yml)`;
+              const runLink = r.runUrl ? `[View](${r.runUrl})` : '—';
               const branch = r.branch || '—';
               const trigger = r.event || '—';
               const duration = r.duration || '—';
-              summary += `| ${statusIcon(r)} | ${repoLink} | ${conclusionBadge(r)} | \`${branch}\` | \`${trigger}\` | ${duration} | ${workflowLink} |\n`;
+              summary += `| ${statusIcon(r)} | ${repoLink} | ${conclusionBadge(r)} | \`${branch}\` | \`${trigger}\` | ${duration} | ${runLink} |\n`;
             }
 
             summary += '\n';
@@ -401,7 +401,9 @@ jobs:
 
             results.forEach((r, i) => {
               const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-              const link = `<a href="${r.repoUrl}/actions/workflows/deploy-v2.yml" style="color:#3b82f6; text-decoration:none; font-weight:500;">View Run →</a>`;
+              const link = r.runUrl
+                ? `<a href="${r.runUrl}" style="color:#3b82f6; text-decoration:none; font-weight:500;">View Run \u2192</a>`
+                : '\u2014';
               html += `
                             <tr style="background-color:${bgColor};">
                               <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9;">
@@ -410,7 +412,7 @@ jobs:
                                 </span>
                               </td>
                               <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9;">
-                                <a href="${r.repoUrl}" style="color:#0f172a; text-decoration:none; font-weight:500;">${r.repo}</a>
+                                <a href="${r.repoUrl}/actions/workflows/deploy-v2.yml" style="color:#0f172a; text-decoration:none; font-weight:500;">${r.repo}</a>
                               </td>
                               <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; color:#475569; font-size:13px;">
                                 <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:12px;">${r.branch || '—'}</code>
