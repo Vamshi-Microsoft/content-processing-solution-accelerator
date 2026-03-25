@@ -5,6 +5,23 @@ on:
     # Runs every day at 8:00 AM UTC
     - cron: '0 8 * * *'
   workflow_dispatch:
+    inputs:
+      main_branch_only:
+        description: 'Fetch only runs from main branch'
+        required: false
+        default: false
+        type: boolean
+      trigger_filter:
+        description: 'Filter by trigger type'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - schedule
+          - workflow_dispatch
+          - push
+          - pull_request
 
 permissions:
   contents: read
@@ -14,6 +31,9 @@ jobs:
   monitor:
     name: Monitor deploy-v2 across repos
     runs-on: ubuntu-latest
+    env:
+      MAIN_BRANCH_ONLY: ${{ github.event.inputs.main_branch_only || 'false' }}
+      TRIGGER_FILTER: ${{ github.event.inputs.trigger_filter || 'all' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,6 +58,9 @@ jobs:
 
             const results = [];
 
+            const branchFilter = process.env.MAIN_BRANCH_ONLY === 'true' ? 'main' : '';
+            const triggerFilter = (process.env.TRIGGER_FILTER || 'all').trim();
+
             for (const { owner, repo } of repos) {
               const entry = {
                 owner,
@@ -59,12 +82,16 @@ jobs:
               try {
                 // Look up deploy-v2.yml directly by filename — exactly like visiting
                 // https://github.com/{owner}/{repo}/actions/workflows/deploy-v2.yml
-                const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                const listParams = {
                   owner,
                   repo,
                   workflow_id: 'deploy-v2.yml',
                   per_page: 1
-                });
+                };
+                if (branchFilter) listParams.branch = branchFilter;
+                if (triggerFilter && triggerFilter !== 'all') listParams.event = triggerFilter;
+
+                const { data: runs } = await github.rest.actions.listWorkflowRuns(listParams);
 
                 if (runs.workflow_runs.length === 0) {
                   entry.status = 'no_recent_runs';
